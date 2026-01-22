@@ -86,7 +86,7 @@ export default async function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className='container mx-auto px-4 py-24 text-center'>
+      <section className='container mx-auto px-4 py-12 md:py-24 text-center'>
         <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-sm font-medium mb-8'>
           <Sparkles className='h-4 w-4' />
           Plataforma de Desenvolvimento Profissional

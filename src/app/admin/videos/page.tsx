@@ -100,7 +100,7 @@ export default function AdminVideosPage() {
         </div>
       </div>
 
-      <div className='grid grid-cols-3 gap-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'>
         <Card className='bg-white border-slate-200 shadow-sm'>
           <CardContent className='p-4'>
             <div className='flex items-center justify-between'>
@@ -134,7 +134,7 @@ export default function AdminVideosPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
+        <Card className='bg-white border-slate-200 shadow-sm sm:col-span-2 lg:col-span-1'>
           <CardContent className='p-4'>
             <div className='flex items-center justify-between'>
               <div>
@@ -243,6 +243,8 @@ export default function AdminVideosPage() {
                   poster={video.thumbnailUrl}
                   className='w-full h-full object-cover'
                   controls
+                  playsInline
+                  preload='metadata'
                 />
                 <div className='absolute bottom-2 right-2'>
                   <span className='px-2 py-1 rounded-md bg-black/60 text-white text-xs flex items-center gap-1'>

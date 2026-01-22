@@ -396,7 +396,7 @@ export default function AdminVagasPage() {
         </Dialog>
       </div>
 
-      <div className='grid grid-cols-3 gap-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'>
         <Card className='bg-white border-slate-200 shadow-sm'>
           <CardContent className='p-4'>
             <div className='flex items-center justify-between'>
