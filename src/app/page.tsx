@@ -56,7 +56,7 @@ export default async function Home() {
     <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
       {/* Header */}
       <header className='border-b border-slate-200 bg-white/70 backdrop-blur-lg sticky top-0 z-50'>
-        <div className='container mx-auto px-4 py-4 flex items-center justify-between'>
+        <div className='container mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4'>
           <Link href='/' className='text-2xl font-bold flex items-center gap-2'>
             <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
               <Sparkles className='h-5 w-5 text-white' />
@@ -65,7 +65,7 @@ export default async function Home() {
               Web Skill First
             </span>
           </Link>
-          <nav className='flex items-center gap-4'>
+          <nav className='flex items-center gap-4 w-full sm:w-auto justify-center'>
             {session ? (
               <Link href='/dashboard'>
                 <Button className='bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'>
@@ -91,7 +91,7 @@ export default async function Home() {
           <Sparkles className='h-4 w-4' />
           Plataforma de Desenvolvimento Profissional
         </div>
-        <h1 className='text-5xl md:text-6xl font-bold text-slate-900 mb-6'>
+        <h1 className='text-4xl md:text-6xl font-bold text-slate-900 mb-6'>
           Sua jornada para o{' '}
           <span className='text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400'>
             sucesso
@@ -102,21 +102,24 @@ export default async function Home() {
           Plataforma completa para desenvolvimento profissional com cursos,
           vagas de emprego e certificações.
         </p>
-        <div className='flex gap-4 justify-center'>
-          <Link href={session ? '/dashboard' : '/login'}>
+        <div className='flex flex-col sm:flex-row gap-4 justify-center'>
+          <Link
+            href={session ? '/dashboard' : '/login'}
+            className='w-full sm:w-auto'
+          >
             <Button
               size='lg'
-              className='bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'
+              className='w-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'
             >
               {session ? 'Acessar Dashboard' : 'Começar Agora'}
               <ChevronRight className='h-4 w-4 ml-2' />
             </Button>
           </Link>
-          <Link href='/cursos'>
+          <Link href='/cursos' className='w-full sm:w-auto'>
             <Button
               size='lg'
               variant='outline'
-              className='border-slate-200 text-slate-700 hover:bg-slate-100'
+              className='w-full border-slate-200 text-slate-700 hover:bg-slate-100'
             >
               Ver Cursos
             </Button>

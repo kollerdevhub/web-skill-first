@@ -1,33 +1,10 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { auth, signOut } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  LayoutDashboard,
-  Users,
-  GraduationCap,
-  Briefcase,
-  Video,
-  Settings,
-  ArrowLeft,
-  Home,
-  LogOut,
-  Sparkles,
-} from 'lucide-react';
+import { auth } from '@/lib/auth';
+import AdminClientLayout from './client-layout';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
-
-const navItems = [
-  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { label: 'Usuários', href: '/admin/usuarios', icon: Users },
-  { label: 'Cursos', href: '/admin/cursos', icon: GraduationCap },
-  { label: 'Vagas', href: '/admin/vagas', icon: Briefcase },
-  { label: 'Vídeos', href: '/admin/videos', icon: Video },
-  { label: 'Configurações', href: '/admin/config', icon: Settings },
-];
 
 export default async function AdminLayout({ children }: AdminLayoutProps) {
   const session = await auth();
@@ -36,99 +13,5 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
     redirect('/dashboard');
   }
 
-  return (
-    <div className='min-h-screen bg-slate-50 flex'>
-      {/* Sidebar */}
-      <aside className='w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm'>
-        <div className='p-5 border-b border-slate-100'>
-          <Link
-            href='/admin'
-            className='text-2xl font-bold flex items-center gap-2'
-          >
-            <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
-              <Sparkles className='h-5 w-5 text-white' />
-            </div>
-            <span className='bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent'>
-              Web Skill First
-            </span>
-          </Link>
-        </div>
-
-        <nav className='flex-1 p-3 space-y-1'>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className='flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-all group'
-              >
-                <Icon className='h-5 w-5 group-hover:text-blue-500 transition-colors' />
-                <span className='font-medium'>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Quick links */}
-        <div className='p-4 border-t border-slate-100 space-y-2'>
-          <Link
-            href='/dashboard'
-            className='flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors'
-          >
-            <ArrowLeft className='h-4 w-4' />
-            Voltar ao Dashboard
-          </Link>
-          <Link
-            href='/'
-            className='flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors'
-          >
-            <Home className='h-4 w-4' />
-            Ir para Home
-          </Link>
-        </div>
-
-        {/* User section */}
-        <div className='p-4 border-t border-slate-100'>
-          <div className='flex items-center gap-3 mb-3'>
-            <Avatar className='ring-2 ring-blue-100'>
-              <AvatarImage
-                src={session.user?.image || ''}
-                alt={session.user?.name || ''}
-              />
-              <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white'>
-                {session.user?.name?.charAt(0) || 'A'}
-              </AvatarFallback>
-            </Avatar>
-            <div className='flex-1 min-w-0'>
-              <p className='text-sm font-medium text-slate-900 truncate'>
-                {session.user?.name}
-              </p>
-              <p className='text-xs text-blue-600 font-medium'>Administrador</p>
-            </div>
-          </div>
-          <form
-            action={async () => {
-              'use server';
-              await signOut({ redirectTo: '/' });
-            }}
-          >
-            <Button
-              type='submit'
-              variant='outline'
-              className='w-full border-slate-200 text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all'
-            >
-              <LogOut className='h-4 w-4 mr-2' />
-              Sair
-            </Button>
-          </form>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className='flex-1 overflow-auto bg-slate-50'>
-        <div className='p-8'>{children}</div>
-      </main>
-    </div>
-  );
+  return <AdminClientLayout session={session}>{children}</AdminClientLayout>;
 }
