@@ -1,83 +1,78 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-// GET /api/admin/courses/[id] - Busca curso por ID
+const globalForCourses = globalThis as unknown as {
+  courses: Array<Record<string, unknown>>;
+};
+
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-
-  if (!session || session.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { id } = await params;
-
-  const course = await db.course.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { enrollments: true, certificates: true },
-      },
-    },
-  });
+  const course = globalForCourses.courses?.find((c) => c.id === id);
 
   if (!course) {
-    return NextResponse.json({ error: 'Course not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Curso não encontrado' },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json(course);
 }
 
-// PUT /api/admin/courses/[id] - Atualiza curso
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
+  try {
+    const { id } = await params;
+    const body = await request.json();
 
-  if (!session || session.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const index = globalForCourses.courses?.findIndex((c) => c.id === id);
+    if (index === undefined || index === -1) {
+      return NextResponse.json(
+        { error: 'Curso não encontrado' },
+        { status: 404 },
+      );
+    }
+
+    globalForCourses.courses[index] = {
+      ...globalForCourses.courses[index],
+      ...body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json(globalForCourses.courses[index]);
+  } catch {
+    return NextResponse.json(
+      { error: 'Erro ao atualizar curso' },
+      { status: 500 },
+    );
   }
-
-  const { id } = await params;
-  const data = await request.json();
-
-  const course = await db.course.update({
-    where: { id },
-    data: {
-      title: data.title,
-      description: data.description,
-      category: data.category,
-      level: data.level || 'beginner',
-      duration: data.duration || 60,
-      imageUrl: data.imageUrl || null,
-      videoUrl: data.videoUrl || null,
-      videoPublicId: data.videoPublicId || null,
-    },
-  });
-
-  return NextResponse.json(course);
 }
 
-// DELETE /api/admin/courses/[id] - Exclui curso
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
+  try {
+    const { id } = await params;
+    const index = globalForCourses.courses?.findIndex((c) => c.id === id);
 
-  if (!session || session.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (index === undefined || index === -1) {
+      return NextResponse.json(
+        { error: 'Curso não encontrado' },
+        { status: 404 },
+      );
+    }
+
+    globalForCourses.courses.splice(index, 1);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { error: 'Erro ao excluir curso' },
+      { status: 500 },
+    );
   }
-
-  const { id } = await params;
-
-  await db.course.delete({
-    where: { id },
-  });
-
-  return NextResponse.json({ success: true });
 }

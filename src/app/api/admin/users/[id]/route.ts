@@ -1,27 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-// PATCH /api/admin/users/[id] - Atualiza usuário (role)
+const globalForUsers = globalThis as unknown as {
+  users: Array<Record<string, unknown>>;
+};
+
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
+  try {
+    const { id } = await params;
+    const body = await request.json();
 
-  if (!session || session.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const index = globalForUsers.users?.findIndex((u) => u.id === id);
+    if (index === undefined || index === -1) {
+      return NextResponse.json(
+        { error: 'Usuário não encontrado' },
+        { status: 404 },
+      );
+    }
+
+    globalForUsers.users[index] = {
+      ...globalForUsers.users[index],
+      ...body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json(globalForUsers.users[index]);
+  } catch {
+    return NextResponse.json(
+      { error: 'Erro ao atualizar usuário' },
+      { status: 500 },
+    );
   }
-
-  const { id } = await params;
-  const data = await request.json();
-
-  const user = await db.user.update({
-    where: { id },
-    data: {
-      role: data.role,
-    },
-  });
-
-  return NextResponse.json(user);
 }

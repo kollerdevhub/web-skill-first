@@ -1,56 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-// PUT /api/admin/jobs/[id] - Atualiza vaga
+// Access the global jobs array
+const globalForJobs = globalThis as unknown as {
+  jobs: Array<Record<string, unknown>>;
+};
+
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
+  try {
+    const { id } = await params;
+    const body = await request.json();
 
-  if (!session || session.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const index = globalForJobs.jobs?.findIndex((j) => j.id === id);
+    if (index === undefined || index === -1) {
+      return NextResponse.json(
+        { error: 'Vaga não encontrada' },
+        { status: 404 },
+      );
+    }
+
+    globalForJobs.jobs[index] = {
+      ...globalForJobs.jobs[index],
+      ...body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json(globalForJobs.jobs[index]);
+  } catch {
+    return NextResponse.json(
+      { error: 'Erro ao atualizar vaga' },
+      { status: 500 },
+    );
   }
-
-  const { id } = await params;
-  const data = await request.json();
-
-  const job = await db.job.update({
-    where: { id },
-    data: {
-      title: data.title,
-      company: data.company,
-      department: data.department || null,
-      description: data.description,
-      requirements: data.requirements,
-      benefits: data.benefits || null,
-      salaryRange: data.salaryRange || null,
-      location: data.location || null,
-      type: data.type || 'hybrid',
-      status: data.status || 'active',
-    },
-  });
-
-  return NextResponse.json(job);
 }
 
-// DELETE /api/admin/jobs/[id] - Exclui vaga
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
+  try {
+    const { id } = await params;
+    const index = globalForJobs.jobs?.findIndex((j) => j.id === id);
 
-  if (!session || session.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (index === undefined || index === -1) {
+      return NextResponse.json(
+        { error: 'Vaga não encontrada' },
+        { status: 404 },
+      );
+    }
+
+    globalForJobs.jobs.splice(index, 1);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { error: 'Erro ao excluir vaga' },
+      { status: 500 },
+    );
   }
-
-  const { id } = await params;
-
-  await db.job.delete({
-    where: { id },
-  });
-
-  return NextResponse.json({ success: true });
 }

@@ -1,12 +1,10 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { db } from '@/lib/db';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(db),
   trustHost: true,
   debug: process.env.NODE_ENV === 'development',
+  secret: process.env.AUTH_SECRET,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
@@ -21,17 +19,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      // Buscar role do usuário para decidir redirecionamento
-      if (user?.id) {
-        const dbUser = await db.user.findUnique({
-          where: { id: user.id },
-          select: { role: true },
-        });
-        // Armazenar role no user para uso no redirect callback
-        (user as { role?: string }).role = dbUser?.role ?? 'candidate';
+    async jwt({ token, user, account }) {
+      // Persist the OAuth access_token and user info
+      if (account && user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
+        // Check if user email is admin
+        token.role =
+          user.email === 'williamkoller30@gmail.com' ? 'admin' : 'candidate';
       }
-      return true;
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.id as string) || (token.sub as string);
+        session.user.role = (token.role as string) || 'candidate';
+      }
+      return session;
     },
     async redirect({ url, baseUrl }) {
       // Se é a URL raiz ou home, permitir
@@ -49,20 +55,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Para qualquer outro caso (signIn sem callback), ir para redirect
       return `${baseUrl}/auth/redirect`;
     },
-    async session({ session, user }) {
-      if (session.user && user?.id) {
-        session.user.id = user.id;
-
-        // Buscar role diretamente do banco
-        const dbUser = await db.user.findUnique({
-          where: { id: user.id },
-          select: { role: true },
-        });
-
-        session.user.role = dbUser?.role ?? 'candidate';
-      }
-      return session;
-    },
+  },
+  session: {
+    strategy: 'jwt',
   },
   pages: {
     signIn: '/login',

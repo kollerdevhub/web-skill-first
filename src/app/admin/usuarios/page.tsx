@@ -1,6 +1,6 @@
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserRoleSelect } from './user-role-select';
@@ -12,43 +12,123 @@ import {
   Mail,
   Calendar,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 
-export default async function AdminUsuariosPage() {
-  const session = await auth();
-  if (!session || session.user?.role !== 'admin') redirect('/dashboard');
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  image: string;
+  role: string;
+  createdAt: string;
+  enrollments: number;
+  applications: number;
+  certificates: number;
+}
 
-  const users = await db.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: {
-        select: { enrollments: true, applications: true, certificates: true },
-      },
-    },
-  });
+const initialUsers: User[] = [
+  {
+    id: '1',
+    name: 'Admin User',
+    email: 'admin@webskillfirst.com.br',
+    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+    role: 'admin',
+    createdAt: '2024-01-01T00:00:00Z',
+    enrollments: 0,
+    applications: 0,
+    certificates: 0,
+  },
+  {
+    id: '2',
+    name: 'Maria Silva',
+    email: 'maria@email.com',
+    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maria',
+    role: 'candidate',
+    createdAt: '2024-01-15T00:00:00Z',
+    enrollments: 3,
+    applications: 2,
+    certificates: 1,
+  },
+  {
+    id: '3',
+    name: 'João Santos',
+    email: 'joao@email.com',
+    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=joao',
+    role: 'candidate',
+    createdAt: '2024-02-01T00:00:00Z',
+    enrollments: 5,
+    applications: 4,
+    certificates: 2,
+  },
+  {
+    id: '4',
+    name: 'Ana Costa',
+    email: 'ana@email.com',
+    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ana',
+    role: 'candidate',
+    createdAt: '2024-02-10T00:00:00Z',
+    enrollments: 2,
+    applications: 1,
+    certificates: 0,
+  },
+  {
+    id: '5',
+    name: 'Pedro Lima',
+    email: 'pedro@email.com',
+    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=pedro',
+    role: 'candidate',
+    createdAt: '2024-02-20T00:00:00Z',
+    enrollments: 4,
+    applications: 3,
+    certificates: 1,
+  },
+];
+
+const roleConfig: Record<
+  string,
+  { label: string; color: string; bgColor: string; borderColor: string }
+> = {
+  admin: {
+    label: 'Admin',
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-50',
+    borderColor: 'border-rose-200',
+  },
+  candidate: {
+    label: 'Candidato',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+  },
+};
+
+export default function AdminUsuariosPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate loading
+    setTimeout(() => {
+      setUsers(initialUsers);
+      setLoading(false);
+    }, 500);
+  }, []);
+
   const stats = {
     total: users.length,
     admins: users.filter((u) => u.role === 'admin').length,
-    totalEnrollments: users.reduce((acc, u) => acc + u._count.enrollments, 0),
-    totalCertificates: users.reduce((acc, u) => acc + u._count.certificates, 0),
+    totalEnrollments: users.reduce((acc, u) => acc + u.enrollments, 0),
+    totalCertificates: users.reduce((acc, u) => acc + u.certificates, 0),
   };
-  const roleConfig: Record<
-    string,
-    { label: string; color: string; bgColor: string; borderColor: string }
-  > = {
-    admin: {
-      label: 'Admin',
-      color: 'text-rose-600',
-      bgColor: 'bg-rose-50',
-      borderColor: 'border-rose-200',
-    },
-    candidate: {
-      label: 'Candidato',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-    },
-  };
+
+  if (loading) {
+    return (
+      <div className='flex items-center justify-center h-64'>
+        <Loader2 className='h-8 w-8 animate-spin text-blue-500' />
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -167,7 +247,7 @@ export default async function AdminUsuariosPage() {
                       <GraduationCap className='h-3 w-3' />
                     </div>
                     <p className='text-slate-900 font-medium'>
-                      {user._count.enrollments}
+                      {user.enrollments}
                     </p>
                     <p className='text-slate-500 text-xs'>Cursos</p>
                   </div>
@@ -176,7 +256,7 @@ export default async function AdminUsuariosPage() {
                       <Briefcase className='h-3 w-3' />
                     </div>
                     <p className='text-slate-900 font-medium'>
-                      {user._count.applications}
+                      {user.applications}
                     </p>
                     <p className='text-slate-500 text-xs'>Vagas</p>
                   </div>
@@ -185,7 +265,7 @@ export default async function AdminUsuariosPage() {
                       <Award className='h-3 w-3' />
                     </div>
                     <p className='text-slate-900 font-medium'>
-                      {user._count.certificates}
+                      {user.certificates}
                     </p>
                     <p className='text-slate-500 text-xs'>Certs</p>
                   </div>

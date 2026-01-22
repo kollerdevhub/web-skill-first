@@ -1,56 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-// GET: List all videos
-export async function GET() {
-  try {
-    console.log('[API] GET /api/admin/videos');
-    const videos = await db.video.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    console.log('[API] Videos encontrados:', videos.length);
-    return NextResponse.json(videos);
-  } catch (error) {
-    console.error('[API] Erro no GET /api/admin/videos:', error);
-    return NextResponse.json(
-      { error: 'Erro ao buscar vídeos' },
-      { status: 500 },
-    );
-  }
+// Real Cloudinary demo videos
+const initialVideos = [
+  {
+    id: '1',
+    url: 'https://res.cloudinary.com/demo/video/upload/v1689697988/samples/elephants.mp4',
+    publicId: 'samples/elephants',
+    thumbnailUrl:
+      'https://res.cloudinary.com/demo/video/upload/so_0/v1689697988/samples/elephants.jpg',
+    duration: 47,
+    createdAt: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: '2',
+    url: 'https://res.cloudinary.com/demo/video/upload/v1689697988/samples/sea-turtle.mp4',
+    publicId: 'samples/sea-turtle',
+    thumbnailUrl:
+      'https://res.cloudinary.com/demo/video/upload/so_0/v1689697988/samples/sea-turtle.jpg',
+    duration: 34,
+    createdAt: '2024-01-05T00:00:00Z',
+  },
+  {
+    id: '3',
+    url: 'https://res.cloudinary.com/demo/video/upload/v1689697988/samples/cld-sample-video.mp4',
+    publicId: 'samples/cld-sample-video',
+    thumbnailUrl:
+      'https://res.cloudinary.com/demo/video/upload/so_0/v1689697988/samples/cld-sample-video.jpg',
+    duration: 22,
+    createdAt: '2024-01-10T00:00:00Z',
+  },
+];
+
+const globalForVideos = globalThis as unknown as {
+  videos: typeof initialVideos;
+};
+if (!globalForVideos.videos) {
+  globalForVideos.videos = [...initialVideos];
 }
 
-// POST: Save a new video
-export async function POST(req: NextRequest) {
+export async function GET() {
+  return NextResponse.json(
+    globalForVideos.videos.map((v) => ({
+      ...v,
+      secureUrl: v.url,
+    })),
+  );
+}
+
+export async function POST(request: Request) {
   try {
-    console.log('[API] POST /api/admin/videos');
-    const { url, publicId, thumbnailUrl, duration } = await req.json();
-    console.log('[API] Dados recebidos:', {
-      url,
-      publicId,
-      thumbnailUrl,
-      duration,
-    });
-    if (!url || !publicId) {
-      console.warn('[API] Campos obrigatórios faltando');
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 },
-      );
-    }
-    const video = await db.video.create({
-      data: {
-        url,
-        publicId,
-        thumbnailUrl,
-        duration,
-      },
-    });
-    console.log('[API] Vídeo salvo com sucesso:', video.id);
-    return NextResponse.json(video, { status: 201 });
-  } catch (error) {
-    console.error('[API] Erro no POST /api/admin/videos:', error);
+    const body = await request.json();
+    const newVideo = {
+      id: Date.now().toString(),
+      url: body.url,
+      publicId: body.publicId,
+      thumbnailUrl: body.thumbnailUrl || null,
+      duration: body.duration || 0,
+      createdAt: new Date().toISOString(),
+    };
+    globalForVideos.videos.unshift(newVideo);
     return NextResponse.json(
-      { error: 'Failed to save video' },
+      { ...newVideo, secureUrl: newVideo.url },
+      { status: 201 },
+    );
+  } catch {
+    return NextResponse.json(
+      { error: 'Erro ao salvar vídeo' },
       { status: 500 },
     );
   }
