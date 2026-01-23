@@ -17,6 +17,7 @@ import {
   ArrowRight,
   ChevronRight,
 } from 'lucide-react';
+import { UserMenu } from '@/components/user-menu';
 
 const features = [
   {
@@ -67,12 +68,17 @@ export default async function Home() {
           </Link>
           <nav className='flex items-center gap-4 w-full sm:w-auto justify-center'>
             {session ? (
-              <Link href='/dashboard'>
-                <Button className='bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'>
-                  Dashboard
-                  <ArrowRight className='h-4 w-4 ml-2' />
-                </Button>
-              </Link>
+              <div className='flex items-center gap-4'>
+                <Link href='/dashboard' className='hidden sm:block'>
+                  <Button
+                    variant='ghost'
+                    className='text-slate-600 hover:text-blue-600'
+                  >
+                    Dashboard
+                  </Button>
+                </Link>
+                <UserMenu session={session} />
+              </div>
             ) : (
               <Link href='/login'>
                 <Button className='bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'>

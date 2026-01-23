@@ -116,34 +116,34 @@ export default function DashboardClientLayout({
         </nav>
 
         {/* User section */}
-        <div className='p-4 border-t border-slate-200 bg-slate-50/50'>
-          <div className='flex items-center gap-3 mb-3'>
-            <Avatar className='ring-2 ring-slate-100'>
-              <AvatarImage
-                src={session.user?.image || ''}
-                alt={session.user?.name || ''}
-              />
-              <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white font-medium'>
-                {session.user?.name?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className='flex-1 min-w-0'>
-              <p className='text-sm font-medium text-slate-900 truncate'>
-                {session.user?.name}
-              </p>
-              <p className='text-xs text-slate-500 truncate'>
-                {session.user?.email}
-              </p>
+        <div className='p-4 border-t border-slate-200 bg-slate-50/50 mt-auto'>
+          <div className='bg-white p-3 rounded-2xl border border-slate-200 shadow-sm'>
+            <div className='flex items-center gap-3 mb-3'>
+              <Avatar className='h-10 w-10 ring-2 ring-blue-50'>
+                <AvatarImage src={session.user?.image || ''} />
+                <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white font-medium'>
+                  {session.user?.name?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className='flex-1 min-w-0'>
+                <p className='text-sm font-semibold text-slate-900 truncate'>
+                  {session.user?.name}
+                </p>
+                <p className='text-xs text-slate-500 truncate'>
+                  {session.user?.email}
+                </p>
+              </div>
             </div>
+            <Button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              variant='ghost'
+              size='sm'
+              className='w-full justify-start text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg h-9 transition-all'
+            >
+              <LogOut className='h-4 w-4 mr-2' />
+              <span className='font-medium'>Finalizar Sessão</span>
+            </Button>
           </div>
-          <Button
-            onClick={() => signOut({ callbackUrl: '/' })}
-            variant='outline'
-            className='w-full border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all'
-          >
-            <LogOut className='h-4 w-4 mr-2' />
-            Sair
-          </Button>
         </div>
       </aside>
 
