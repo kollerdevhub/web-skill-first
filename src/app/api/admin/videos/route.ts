@@ -4,20 +4,19 @@ import { NextResponse } from 'next/server';
 const initialVideos = [
   {
     id: '1',
-    url: 'https://res.cloudinary.com/demo/video/upload/v1689697988/samples/elephants.mp4',
-    publicId: 'samples/elephants',
-    thumbnailUrl:
-      'https://res.cloudinary.com/demo/video/upload/so_0/v1689697988/samples/elephants.jpg',
-    duration: 47,
+    url: 'https://res.cloudinary.com/demo/video/upload/dog.mp4',
+    publicId: 'dog',
+    thumbnailUrl: 'https://res.cloudinary.com/demo/video/upload/so_0/dog.jpg',
+    duration: 10,
     createdAt: '2024-01-01T00:00:00Z',
   },
   {
     id: '2',
-    url: 'https://res.cloudinary.com/demo/video/upload/v1689697988/samples/sea-turtle.mp4',
-    publicId: 'samples/sea-turtle',
+    url: 'https://res.cloudinary.com/demo/video/upload/video_demo.mp4',
+    publicId: 'video_demo',
     thumbnailUrl:
-      'https://res.cloudinary.com/demo/video/upload/so_0/v1689697988/samples/sea-turtle.jpg',
-    duration: 34,
+      'https://res.cloudinary.com/demo/video/upload/so_0/video_demo.jpg',
+    duration: 15,
     createdAt: '2024-01-05T00:00:00Z',
   },
   {
