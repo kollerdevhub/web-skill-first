@@ -52,16 +52,16 @@ export function UserMenu({ session }: UserMenuProps) {
       </button>
 
       {isOpen && (
-        <div className='absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-[60] animate-in fade-in zoom-in duration-200'>
-          <div className='px-4 py-2 border-b border-slate-100 mb-1'>
-            <p className='text-sm font-semibold text-slate-900 truncate'>
+        <div className='absolute right-0 mt-2 w-56 bg-white border border-blue-100 rounded-xl shadow-xl py-2 z-[60] animate-in fade-in zoom-in duration-200'>
+          <div className='px-4 py-2 border-b border-blue-50 mb-1'>
+            <p className='text-sm font-semibold text-blue-900 truncate'>
               {session.user.name}
             </p>
-            <p className='text-xs text-slate-500 truncate'>
+            <p className='text-xs text-blue-600/70 truncate'>
               {session.user.email}
             </p>
             {isAdmin && (
-              <span className='inline-block mt-1 px-1.5 py-0.5 rounded bg-blue-50 text-[10px] font-bold text-blue-600 uppercase'>
+              <span className='inline-block mt-1 px-1.5 py-0.5 rounded bg-blue-100 text-[10px] font-bold text-blue-700 uppercase'>
                 Administrador
               </span>
             )}
@@ -71,7 +71,7 @@ export function UserMenu({ session }: UserMenuProps) {
             <Link
               href={isAdmin ? '/admin' : '/dashboard'}
               onClick={() => setIsOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors'
+              className='flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg transition-colors'
             >
               <LayoutDashboard className='h-4 w-4' />
               {isAdmin ? 'Painel Admin' : 'Meu Dashboard'}
@@ -80,7 +80,7 @@ export function UserMenu({ session }: UserMenuProps) {
             <Link
               href='/dashboard/perfil'
               onClick={() => setIsOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors'
+              className='flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg transition-colors'
             >
               <UserIcon className='h-4 w-4' />
               Perfil
@@ -89,14 +89,14 @@ export function UserMenu({ session }: UserMenuProps) {
             <Link
               href={isAdmin ? '/admin/config' : '/dashboard/configuracoes'}
               onClick={() => setIsOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors'
+              className='flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg transition-colors'
             >
               <Settings className='h-4 w-4' />
               Configurações
             </Link>
           </div>
 
-          <div className='mt-2 pt-2 border-t border-slate-100 px-2'>
+          <div className='mt-2 pt-2 border-t border-blue-50 px-2'>
             <button
               onClick={() => signOut({ callbackUrl: '/' })}
               className='flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors'

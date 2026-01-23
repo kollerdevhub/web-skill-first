@@ -126,10 +126,10 @@ export default function DashboardClientLayout({
                 </AvatarFallback>
               </Avatar>
               <div className='flex-1 min-w-0'>
-                <p className='text-sm font-semibold text-slate-900 truncate'>
+                <p className='text-sm font-semibold text-blue-900 truncate'>
                   {session.user?.name}
                 </p>
-                <p className='text-xs text-slate-500 truncate'>
+                <p className='text-xs text-blue-600/70 truncate'>
                   {session.user?.email}
                 </p>
               </div>
