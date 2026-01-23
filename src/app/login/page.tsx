@@ -38,7 +38,7 @@ export default function LoginPage() {
         </div>
 
         <div className='relative z-10 flex items-center gap-6 text-sm text-blue-100/60'>
-          <span>© 2024 Web Skill First</span>
+          <span>© 2026 Web Skill First</span>
           <div className='h-1 w-1 bg-blue-100/40 rounded-full' />
           <span>Plataforma de Elite</span>
         </div>
