@@ -173,7 +173,7 @@ export default async function Home() {
       {/* Footer */}
       <footer className='border-t border-slate-200 mt-16 bg-white'>
         <div className='container mx-auto px-4 py-8 text-center text-slate-500'>
-          <p>© 2024 Web Skill First. Todos os direitos reservados.</p>
+          <p>© 2026 Web Skill First. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
