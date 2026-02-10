@@ -1,11 +1,7 @@
-import { auth } from '@/lib/auth';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+'use client';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import {
   GraduationCap,
@@ -15,62 +11,115 @@ import {
   Sparkles,
   ChevronRight,
   Play,
+  BookOpen,
 } from 'lucide-react';
+import {
+  useMinhasInscricoes,
+  useMinhasCandidaturas,
+  useMeusCertificados,
+  useMyProfile,
+  useMe,
+} from '@/hooks';
 
-const stats = [
-  {
-    label: 'Cursos em Andamento',
-    value: '3',
-    icon: GraduationCap,
-    href: '/dashboard/cursos',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50',
-  },
-  {
-    label: 'Certificados',
-    value: '5',
-    icon: Award,
-    href: '/dashboard/certificados',
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-50',
-  },
-  {
-    label: 'Candidaturas',
-    value: '8',
-    icon: FileText,
-    href: '/dashboard/candidaturas',
-    color: 'text-emerald-500',
-    bgColor: 'bg-emerald-50',
-  },
-  {
-    label: 'Vagas Salvas',
-    value: '12',
-    icon: Briefcase,
-    href: '/dashboard/vagas',
-    color: 'text-indigo-500',
-    bgColor: 'bg-indigo-50',
-  },
-];
+function StatCardSkeleton() {
+  return (
+    <Card className='bg-white border-slate-200 shadow-sm'>
+      <CardContent className='p-4'>
+        <div className='flex items-center justify-between'>
+          <div className='space-y-2'>
+            <Skeleton className='h-8 w-12 bg-slate-100' />
+            <Skeleton className='h-4 w-24 bg-slate-100' />
+          </div>
+          <Skeleton className='h-12 w-12 rounded-xl bg-slate-100' />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-const recentCourses = [
-  { id: 1, title: 'React Avançado', progress: 75, category: 'Frontend' },
-  { id: 2, title: 'Node.js do Zero', progress: 45, category: 'Backend' },
-  { id: 3, title: 'TypeScript Completo', progress: 30, category: 'Linguagens' },
-];
+function CourseCardSkeleton() {
+  return (
+    <Card className='bg-white border-slate-200 shadow-sm'>
+      <CardHeader className='pb-3'>
+        <Skeleton className='h-5 w-16 rounded-full bg-slate-100' />
+        <Skeleton className='h-5 w-32 bg-slate-100' />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className='h-2 w-full bg-slate-100' />
+      </CardContent>
+    </Card>
+  );
+}
 
-export default async function DashboardPage() {
-  const session = await auth();
+export default function DashboardPage() {
+  const { data: me } = useMe();
+  const { data: profile } = useMyProfile();
+  const { data: inscricoes, isLoading: loadingInscricoes } =
+    useMinhasInscricoes();
+  const { data: candidaturas, isLoading: loadingCandidaturas } =
+    useMinhasCandidaturas();
+  const { data: certificados, isLoading: loadingCertificados } =
+    useMeusCertificados();
+
+  const cursosEmAndamento =
+    inscricoes?.filter((i) => i.status === 'em_andamento') || [];
+  const totalCertificados = certificados?.length || 0;
+  const totalCandidaturas = candidaturas?.length || 0;
+  const displayName =
+    profile?.nome || me?.email?.split('@')[0] || 'Candidato';
+
+  const stats = [
+    {
+      label: 'Cursos em Andamento',
+      value: cursosEmAndamento.length.toString(),
+      icon: GraduationCap,
+      href: '/dashboard/cursos',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      loading: loadingInscricoes,
+    },
+    {
+      label: 'Certificados',
+      value: totalCertificados.toString(),
+      icon: Award,
+      href: '/dashboard/certificados',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      loading: loadingCertificados,
+    },
+    {
+      label: 'Candidaturas',
+      value: totalCandidaturas.toString(),
+      icon: FileText,
+      href: '/dashboard/candidaturas',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      loading: loadingCandidaturas,
+    },
+    {
+      label: 'Vagas Disponíveis',
+      value: 'Ver',
+      icon: Briefcase,
+      href: '/dashboard/vagas',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      loading: false,
+    },
+  ];
+
+  // Get recent courses (up to 3)
+  const recentCourses = cursosEmAndamento.slice(0, 3);
 
   return (
     <div className='space-y-8'>
       {/* Welcome section */}
       <div className='flex items-center gap-3'>
-        <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
+        <div className='p-2 rounded-lg bg-blue-600 shadow-sm'>
           <Sparkles className='h-6 w-6 text-white' />
         </div>
         <div>
           <h1 className='text-3xl font-bold text-slate-900'>
-            Olá, {session?.user?.name?.split(' ')[0]}! 👋
+            Olá, {displayName.split(' ')[0]}! 👋
           </h1>
           <p className='text-slate-500 text-sm'>
             Continue sua jornada de aprendizado
@@ -82,9 +131,14 @@ export default async function DashboardPage() {
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
         {stats.map((stat) => {
           const Icon = stat.icon;
+
+          if (stat.loading) {
+            return <StatCardSkeleton key={stat.label} />;
+          }
+
           return (
             <Link key={stat.label} href={stat.href}>
-              <Card className='bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer shadow-sm'>
+              <Card className='bg-white border-slate-200 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer shadow-sm'>
                 <CardContent className='p-4'>
                   <div className='flex items-center justify-between'>
                     <div>
@@ -108,50 +162,78 @@ export default async function DashboardPage() {
       <div>
         <div className='flex items-center justify-between mb-4'>
           <h2 className='text-xl font-semibold text-slate-900 flex items-center gap-2'>
-            <Play className='h-5 w-5 text-blue-500' />
+            <Play className='h-5 w-5 text-blue-600' />
             Continuar Assistindo
           </h2>
           <Link
             href='/dashboard/cursos'
-            className='text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1'
+            className='text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1'
           >
             Ver todos
             <ChevronRight className='h-4 w-4' />
           </Link>
         </div>
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-          {recentCourses.map((course) => (
-            <Card
-              key={course.id}
-              className='bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
-            >
-              <CardHeader className='pb-3'>
-                <span className='px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs font-medium w-fit border border-blue-200'>
-                  {course.category}
-                </span>
-                <CardTitle className='text-slate-900 text-lg'>
-                  {course.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='space-y-2'>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-slate-500'>Progresso</span>
-                    <span className='text-blue-600 font-medium'>
-                      {course.progress}%
+
+        {loadingInscricoes ? (
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <CourseCardSkeleton />
+            <CourseCardSkeleton />
+            <CourseCardSkeleton />
+          </div>
+        ) : recentCourses.length > 0 ? (
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            {recentCourses.map((inscricao) => (
+              <Link
+                key={inscricao.id}
+                href={`/dashboard/cursos/${inscricao.cursoId}`}
+              >
+                <Card className='bg-white border-slate-200 hover:border-blue-200 hover:shadow-md transition-all shadow-sm cursor-pointer'>
+                  <CardHeader className='pb-3'>
+                    <span className='px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium w-fit border border-blue-100'>
+                      Em andamento
                     </span>
-                  </div>
-                  <div className='w-full bg-slate-100 rounded-full h-2'>
-                    <div
-                      className='bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all'
-                      style={{ width: `${course.progress}%` }}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    <CardTitle className='text-slate-900 text-lg'>
+                      {inscricao.curso?.titulo || 'Curso'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='space-y-2'>
+                      <div className='flex justify-between text-sm'>
+                        <span className='text-slate-500'>Progresso</span>
+                        <span className='text-blue-600 font-medium'>
+                          {inscricao.progressoPercentual}%
+                        </span>
+                      </div>
+                      <div className='w-full bg-slate-100 rounded-full h-2'>
+                        <div
+                          className='bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all'
+                          style={{
+                            width: `${inscricao.progressoPercentual}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Card className='bg-slate-50 border-slate-200'>
+            <CardContent className='p-6 text-center'>
+              <BookOpen className='h-10 w-10 text-slate-300 mx-auto mb-3' />
+              <p className='text-slate-500 text-sm'>
+                Nenhum curso em andamento.
+              </p>
+              <Link
+                href='/dashboard/explorar-cursos'
+                className='text-blue-600 hover:text-blue-700 text-sm font-medium'
+              >
+                Explorar cursos disponíveis
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Quick actions */}
@@ -161,7 +243,7 @@ export default async function DashboardPage() {
         </h2>
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
           <Link href='/dashboard/cursos'>
-            <Card className='bg-gradient-to-br from-blue-500 to-blue-600 border-0 hover:from-blue-600 hover:to-blue-700 transition-all cursor-pointer shadow-lg shadow-blue-500/20'>
+            <Card className='bg-blue-600 border-0 hover:bg-blue-700 transition-colors cursor-pointer shadow-sm'>
               <CardContent className='p-6'>
                 <p className='text-lg font-medium text-white'>
                   Explorar Cursos
@@ -171,22 +253,22 @@ export default async function DashboardPage() {
             </Card>
           </Link>
           <Link href='/dashboard/vagas'>
-            <Card className='bg-gradient-to-br from-indigo-500 to-indigo-600 border-0 hover:from-indigo-600 hover:to-indigo-700 transition-all cursor-pointer shadow-lg shadow-indigo-500/20'>
+            <Card className='bg-white border-slate-200 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer shadow-sm'>
               <CardContent className='p-6'>
-                <p className='text-lg font-medium text-white'>Buscar Vagas</p>
-                <p className='text-indigo-100 text-sm'>
-                  Encontre oportunidades
+                <p className='text-lg font-medium text-slate-900'>
+                  Buscar Vagas
                 </p>
+                <p className='text-slate-500 text-sm'>Encontre oportunidades</p>
               </CardContent>
             </Card>
           </Link>
           <Link href='/dashboard/perfil'>
-            <Card className='bg-gradient-to-br from-emerald-500 to-emerald-600 border-0 hover:from-emerald-600 hover:to-emerald-700 transition-all cursor-pointer shadow-lg shadow-emerald-500/20'>
+            <Card className='bg-white border-slate-200 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer shadow-sm'>
               <CardContent className='p-6'>
-                <p className='text-lg font-medium text-white'>
+                <p className='text-lg font-medium text-slate-900'>
                   Atualizar Perfil
                 </p>
-                <p className='text-emerald-100 text-sm'>Complete seu perfil</p>
+                <p className='text-slate-500 text-sm'>Complete seu perfil</p>
               </CardContent>
             </Card>
           </Link>

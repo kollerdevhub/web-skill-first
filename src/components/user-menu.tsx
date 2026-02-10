@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { signOut } from 'next-auth/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   LogOut,
@@ -11,14 +10,15 @@ import {
   User as UserIcon,
   ChevronDown,
 } from 'lucide-react';
+import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
+import { signOutUser } from '@/lib/firebase-auth';
+import { useRouter } from 'next/navigation';
 
-interface UserMenuProps {
-  session: any;
-}
-
-export function UserMenu({ session }: UserMenuProps) {
+export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { user, isAdmin } = useFirebaseAuth();
+  const router = useRouter();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -30,20 +30,23 @@ export function UserMenu({ session }: UserMenuProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (!session?.user) return null;
+  const handleLogout = async () => {
+    await signOutUser();
+    router.push('/');
+  };
 
-  const isAdmin = session.user.role === 'admin';
+  if (!user) return null;
 
   return (
     <div className='relative' ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className='flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors group'
+        className='flex items-center gap-2 p-1 rounded-full hover:bg-slate-50 transition-colors group'
       >
         <Avatar className='h-8 w-8 ring-2 ring-transparent group-hover:ring-blue-100 transition-all'>
-          <AvatarImage src={session.user.image || ''} />
-          <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs'>
-            {session.user.name?.charAt(0) || 'U'}
+          <AvatarImage src={user.photoURL || undefined} />
+          <AvatarFallback className='bg-blue-600 text-white text-xs'>
+            {user.displayName?.charAt(0) || 'U'}
           </AvatarFallback>
         </Avatar>
         <ChevronDown
@@ -52,16 +55,14 @@ export function UserMenu({ session }: UserMenuProps) {
       </button>
 
       {isOpen && (
-        <div className='absolute right-0 mt-2 w-56 bg-white border border-blue-100 rounded-xl shadow-xl py-2 z-[60] animate-in fade-in zoom-in duration-200'>
-          <div className='px-4 py-2 border-b border-blue-50 mb-1'>
-            <p className='text-sm font-semibold text-blue-900 truncate'>
-              {session.user.name}
+        <div className='absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-[60] animate-in fade-in zoom-in duration-200'>
+          <div className='px-4 py-2 border-b border-slate-100 mb-1'>
+            <p className='text-sm font-semibold text-slate-900 truncate'>
+              {user.displayName}
             </p>
-            <p className='text-xs text-blue-600/70 truncate'>
-              {session.user.email}
-            </p>
+            <p className='text-xs text-slate-500 truncate'>{user.email}</p>
             {isAdmin && (
-              <span className='inline-block mt-1 px-1.5 py-0.5 rounded bg-blue-100 text-[10px] font-bold text-blue-700 uppercase'>
+              <span className='inline-block mt-1 px-1.5 py-0.5 rounded bg-blue-50 text-[10px] font-semibold text-blue-700 uppercase border border-blue-100'>
                 Administrador
               </span>
             )}
@@ -71,7 +72,7 @@ export function UserMenu({ session }: UserMenuProps) {
             <Link
               href={isAdmin ? '/admin' : '/dashboard'}
               onClick={() => setIsOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg transition-colors'
+              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors'
             >
               <LayoutDashboard className='h-4 w-4' />
               {isAdmin ? 'Painel Admin' : 'Meu Dashboard'}
@@ -80,7 +81,7 @@ export function UserMenu({ session }: UserMenuProps) {
             <Link
               href='/dashboard/perfil'
               onClick={() => setIsOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg transition-colors'
+              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors'
             >
               <UserIcon className='h-4 w-4' />
               Perfil
@@ -89,16 +90,16 @@ export function UserMenu({ session }: UserMenuProps) {
             <Link
               href={isAdmin ? '/admin/config' : '/dashboard/configuracoes'}
               onClick={() => setIsOpen(false)}
-              className='flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg transition-colors'
+              className='flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors'
             >
               <Settings className='h-4 w-4' />
               Configurações
             </Link>
           </div>
 
-          <div className='mt-2 pt-2 border-t border-blue-50 px-2'>
+          <div className='mt-2 pt-2 border-t border-slate-100 px-2'>
             <button
-              onClick={() => signOut({ callbackUrl: '/' })}
+              onClick={handleLogout}
               className='flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors'
             >
               <LogOut className='h-4 w-4' />

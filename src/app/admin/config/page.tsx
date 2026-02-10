@@ -17,7 +17,6 @@ import {
   Globe,
   Bell,
   Shield,
-  Palette,
   Mail,
   Save,
   Loader2,

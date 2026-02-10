@@ -1,13 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,44 +12,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useRouter } from 'next/navigation';
 import {
-  Play,
+  CheckCircle2,
+  Clock,
+  Eye,
+  GraduationCap,
+  Image as ImageIcon,
+  Loader2,
   Plus,
   Search,
-  Filter,
-  Clock,
   Users,
   Trash2,
-  Eye,
-  Video,
-  Image as ImageIcon,
-  GraduationCap,
-  BarChart3,
-  Calendar,
-  Sparkles,
-  Layers,
-  Loader2,
+  XCircle,
 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cursosService } from '@/lib/api/services/cursos.service';
+import { Curso, CursoNivel, CursoCategoria } from '@/lib/api/types';
 
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  level: string;
-  duration: number;
-  imageUrl: string | null;
-  videoUrl: string | null;
-  videoPublicId: string | null;
-  createdAt: string;
-  _count?: { enrollments: number };
-}
+type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
 const levelConfig: Record<
-  string,
+  CursoNivel | string,
   { label: string; color: string; bgColor: string; borderColor: string }
 > = {
+  basico: {
+    label: 'Básico',
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+  },
+  intermediario: {
+    label: 'Intermediário',
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+  },
+  avancado: {
+    label: 'Avançado',
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-50',
+    borderColor: 'border-rose-200',
+  },
+  // Fallback for any legacy data
   beginner: {
     label: 'Iniciante',
     color: 'text-emerald-600',
@@ -75,13 +81,38 @@ const levelConfig: Record<
   },
 };
 
+const statusConfig: Record<
+  Exclude<StatusFilter, 'all'>,
+  { label: string; pill: string; dot: string }
+> = {
+  published: {
+    label: 'Publicado',
+    pill: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    dot: 'bg-emerald-500',
+  },
+  draft: {
+    label: 'Rascunho',
+    pill: 'bg-amber-100 text-amber-700 border-amber-200',
+    dot: 'bg-amber-500',
+  },
+  archived: {
+    label: 'Arquivado',
+    pill: 'bg-slate-100 text-slate-700 border-slate-200',
+    dot: 'bg-slate-500',
+  },
+};
+
 export default function AdminCursosPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<Curso[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [togglingPublishId, setTogglingPublishId] = useState<string | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
 
@@ -91,9 +122,8 @@ export default function AdminCursosPage() {
 
   async function fetchCourses() {
     try {
-      const res = await fetch('/api/admin/courses');
-      const data = await res.json();
-      setCourses(data);
+      const response = await cursosService.search({ limit: 100 });
+      setCourses(response.data);
     } catch (error) {
       console.error('Erro ao carregar cursos:', error);
     } finally {
@@ -105,41 +135,67 @@ export default function AdminCursosPage() {
     if (!confirm(`Excluir o curso "${title}"?`)) return;
     setDeleting(id);
     try {
-      await fetch(`/api/admin/courses/${id}`, { method: 'DELETE' });
-      setCourses(courses.filter((c) => c.id !== id));
+      await cursosService.delete(id);
+      setCourses((current) => current.filter((c) => c.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir curso:', error);
+      alert('Erro ao excluir curso. Tente novamente.');
     } finally {
       setDeleting(null);
     }
   }
 
-  const stats = useMemo(
-    () => ({
-      total: courses.length,
-      withVideo: courses.filter((c) => c.videoUrl).length,
-      totalEnrollments: courses.reduce(
-        (acc, c) => acc + (c._count?.enrollments || 0),
-        0,
-      ),
-      totalDuration: courses.reduce((acc, c) => acc + c.duration, 0),
-    }),
-    [courses],
-  );
+  async function handlePublishToggle(course: Curso) {
+    const publishing = course.status !== 'published';
+    const ok = confirm(
+      publishing
+        ? `Publicar o curso "${course.titulo}"?`
+        : `Despublicar o curso "${course.titulo}"?`,
+    );
+    if (!ok) return;
+
+    setTogglingPublishId(course.id);
+    try {
+      if (publishing) {
+        await cursosService.publish(course.id);
+      } else {
+        await cursosService.unpublish(course.id);
+      }
+
+      setCourses((current) =>
+        current.map((c) =>
+          c.id === course.id
+            ? { ...c, status: publishing ? 'published' : 'draft' }
+            : c,
+        ),
+      );
+    } catch (e) {
+      alert(
+        e instanceof Error ? e.message : 'Falha ao atualizar status do curso',
+      );
+    } finally {
+      setTogglingPublishId(null);
+    }
+  }
 
   const categories = useMemo(() => {
-    const cats = new Set(courses.map((c) => c.category));
+    const cats = new Set(courses.map((c) => c.categoria));
     return Array.from(cats).sort();
   }, [courses]);
 
   const filteredCourses = useMemo(() => {
     const result = courses.filter((course) => {
       const matchesSearch =
-        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.description.toLowerCase().includes(searchTerm.toLowerCase());
+        course.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.descricao.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesLevel =
-        levelFilter === 'all' || course.level === levelFilter;
+        levelFilter === 'all' || course.nivel === levelFilter;
       const matchesCategory =
-        categoryFilter === 'all' || course.category === categoryFilter;
-      return matchesSearch && matchesLevel && matchesCategory;
+        categoryFilter === 'all' || course.categoria === categoryFilter;
+      const courseStatus = course.status || 'draft';
+      const matchesStatus =
+        statusFilter === 'all' ? true : courseStatus === statusFilter;
+      return matchesSearch && matchesLevel && matchesCategory && matchesStatus;
     });
 
     switch (sortBy) {
@@ -156,16 +212,16 @@ export default function AdminCursosPage() {
         );
         break;
       case 'title':
-        result.sort((a, b) => a.title.localeCompare(b.title));
+        result.sort((a, b) => a.titulo.localeCompare(b.titulo));
         break;
       case 'enrollments':
         result.sort(
-          (a, b) => (b._count?.enrollments || 0) - (a._count?.enrollments || 0),
+          (a, b) => (b.totalInscritos || 0) - (a.totalInscritos || 0),
         );
         break;
     }
     return result;
-  }, [courses, searchTerm, levelFilter, categoryFilter, sortBy]);
+  }, [courses, searchTerm, levelFilter, categoryFilter, sortBy, statusFilter]);
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('pt-BR', {
@@ -176,8 +232,7 @@ export default function AdminCursosPage() {
 
   return (
     <div className='space-y-6'>
-      {/* Header */}
-      <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
         <div className='flex items-center gap-3'>
           <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
             <GraduationCap className='h-6 w-6 text-white' />
@@ -185,10 +240,13 @@ export default function AdminCursosPage() {
           <div>
             <h1 className='text-3xl font-bold text-slate-900'>Cursos</h1>
             <p className='text-slate-500 text-sm'>
-              Gerencie os cursos da plataforma
+              {loading
+                ? 'Carregando catálogo...'
+                : `${courses.length} cursos no catálogo`}
             </p>
           </div>
         </div>
+
         <Button
           onClick={() => router.push('/admin/cursos/new')}
           className='bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'
@@ -198,100 +256,62 @@ export default function AdminCursosPage() {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.total}
-                </p>
-                <p className='text-sm text-slate-500'>Total</p>
-              </div>
-              <div className='p-3 rounded-xl bg-blue-50'>
-                <Layers className='h-5 w-5 text-blue-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.withVideo}
-                </p>
-                <p className='text-sm text-slate-500'>Com Vídeo</p>
-              </div>
-              <div className='p-3 rounded-xl bg-emerald-50'>
-                <Video className='h-5 w-5 text-emerald-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.totalEnrollments}
-                </p>
-                <p className='text-sm text-slate-500'>Matrículas</p>
-              </div>
-              <div className='p-3 rounded-xl bg-amber-50'>
-                <Users className='h-5 w-5 text-amber-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {Math.round(stats.totalDuration / 60)}h
-                </p>
-                <p className='text-sm text-slate-500'>Conteúdo</p>
-              </div>
-              <div className='p-3 rounded-xl bg-rose-50'>
-                <Clock className='h-5 w-5 text-rose-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className='bg-white border-slate-200 shadow-sm overflow-hidden'>
+        <div className='p-5 border-b border-slate-200 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
+          <div className='relative w-full lg:max-w-sm'>
+            <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400' />
+            <Input
+              placeholder='Buscar cursos...'
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className='pl-10 border-slate-200'
+            />
+          </div>
 
-      {/* Filters */}
-      <Card className='bg-white border-slate-200 shadow-sm'>
-        <CardContent className='p-4'>
-          <div className='flex flex-col lg:flex-row gap-4'>
-            <div className='flex-1 relative'>
-              <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400' />
-              <Input
-                placeholder='Buscar cursos...'
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className='pl-10 border-slate-200'
-              />
+          <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end lg:gap-4'>
+            <div className='flex gap-1 rounded-lg bg-slate-100 p-1 w-fit'>
+              {(
+                [
+                  { key: 'all', label: 'Todos' },
+                  { key: 'published', label: 'Publicados' },
+                  { key: 'draft', label: 'Rascunhos' },
+                  { key: 'archived', label: 'Arquivados' },
+                ] as const
+              ).map((tab) => {
+                const active = statusFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type='button'
+                    onClick={() => setStatusFilter(tab.key)}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                      active
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
+
             <div className='flex flex-wrap gap-3'>
               <Select value={levelFilter} onValueChange={setLevelFilter}>
-                <SelectTrigger className='w-40 border-slate-200'>
-                  <Filter className='h-4 w-4 mr-2 text-slate-400' />
-                  <SelectValue />
+                <SelectTrigger className='w-40 border-slate-200 bg-white'>
+                  <SelectValue placeholder='Nível' />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='all'>Todos níveis</SelectItem>
-                  <SelectItem value='beginner'>Iniciante</SelectItem>
-                  <SelectItem value='intermediate'>Intermediário</SelectItem>
-                  <SelectItem value='advanced'>Avançado</SelectItem>
+                  <SelectItem value='basico'>Básico</SelectItem>
+                  <SelectItem value='intermediario'>Intermediário</SelectItem>
+                  <SelectItem value='avancado'>Avançado</SelectItem>
                 </SelectContent>
               </Select>
+
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className='w-44 border-slate-200'>
-                  <Sparkles className='h-4 w-4 mr-2 text-slate-400' />
-                  <SelectValue />
+                <SelectTrigger className='w-44 border-slate-200 bg-white'>
+                  <SelectValue placeholder='Categoria' />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='all'>Todas categorias</SelectItem>
@@ -302,10 +322,10 @@ export default function AdminCursosPage() {
                   ))}
                 </SelectContent>
               </Select>
+
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className='w-40 border-slate-200'>
-                  <BarChart3 className='h-4 w-4 mr-2 text-slate-400' />
-                  <SelectValue />
+                <SelectTrigger className='w-44 border-slate-200 bg-white'>
+                  <SelectValue placeholder='Ordenar' />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='newest'>Mais recentes</SelectItem>
@@ -316,28 +336,15 @@ export default function AdminCursosPage() {
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Courses Grid */}
-      {loading ? (
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card
-              key={i}
-              className='bg-white border-slate-200 overflow-hidden animate-pulse'
-            >
-              <div className='aspect-video bg-slate-100' />
-              <CardContent className='p-4 space-y-3'>
-                <div className='h-5 bg-slate-100 rounded w-3/4' />
-                <div className='h-4 bg-slate-100 rounded w-1/2' />
-              </CardContent>
-            </Card>
-          ))}
         </div>
-      ) : filteredCourses.length === 0 ? (
-        <Card className='bg-white border-slate-200'>
-          <CardContent className='p-16 text-center'>
+
+        {loading ? (
+          <div className='p-10 flex items-center justify-center gap-2 text-slate-500'>
+            <Loader2 className='h-4 w-4 animate-spin text-blue-600' />
+            Carregando cursos...
+          </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className='p-16 text-center'>
             <div className='inline-flex p-4 rounded-full bg-slate-100 mb-4'>
               <GraduationCap className='h-10 w-10 text-slate-400' />
             </div>
@@ -347,7 +354,9 @@ export default function AdminCursosPage() {
                 : 'Nenhum curso encontrado'}
             </h3>
             <p className='text-slate-500 mb-4'>
-              Começe criando seu primeiro curso
+              {courses.length === 0
+                ? 'Comece criando seu primeiro curso'
+                : 'Ajuste sua busca ou filtros para ver mais resultados.'}
             </p>
             {courses.length === 0 && (
               <Button
@@ -358,112 +367,182 @@ export default function AdminCursosPage() {
                 Criar Curso
               </Button>
             )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-          {filteredCourses.map((course) => {
-            const level = levelConfig[course.level] || levelConfig.beginner;
-            return (
-              <Card
-                key={course.id}
-                className='group bg-white border-slate-200 overflow-hidden hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
-              >
-                <div className='aspect-video bg-slate-100 relative overflow-hidden'>
-                  {course.imageUrl ? (
-                    <img
-                      src={course.imageUrl}
-                      alt={course.title}
-                      className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
-                    />
-                  ) : (
-                    <div className='w-full h-full flex items-center justify-center'>
-                      <ImageIcon className='h-12 w-12 text-slate-300' />
-                    </div>
-                  )}
-                  <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity' />
-                  {course.videoUrl && (
-                    <button
-                      onClick={() => router.push(`/admin/cursos/${course.id}`)}
-                      className='absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all'
-                    >
-                      <div className='p-4 rounded-full bg-blue-600 shadow-xl transform scale-90 group-hover:scale-100 transition-transform'>
-                        <Play className='h-8 w-8 text-white fill-white' />
+          </div>
+        ) : (
+          <Table className='min-w-[980px]'>
+            <TableHeader>
+              <TableRow className='bg-slate-50 hover:bg-slate-50'>
+                <TableHead className='pl-6 text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Curso
+                </TableHead>
+                <TableHead className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Categoria
+                </TableHead>
+                <TableHead className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Nível
+                </TableHead>
+                <TableHead className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Alunos
+                </TableHead>
+                <TableHead className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Status
+                </TableHead>
+                <TableHead className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Duração
+                </TableHead>
+                <TableHead className='pr-6 text-right text-xs font-semibold uppercase tracking-wide text-slate-500'>
+                  Ações
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {filteredCourses.map((course) => {
+                const level = levelConfig[course.nivel] || levelConfig.basico;
+                const courseStatus = (course.status || 'draft') as Exclude<
+                  StatusFilter,
+                  'all'
+                >;
+                const status = statusConfig[courseStatus] || statusConfig.draft;
+                const enrollments = course.totalInscritos || 0;
+                return (
+                  <TableRow key={course.id} className='hover:bg-slate-50'>
+                    <TableCell className='pl-6'>
+                      <div className='flex items-center gap-4'>
+                        <div className='h-12 w-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0'>
+                          {course.thumbnailUrl ? (
+                            <img
+                              src={course.thumbnailUrl}
+                              alt={course.titulo}
+                              className='h-full w-full object-cover'
+                            />
+                          ) : (
+                            <div className='h-full w-full flex items-center justify-center'>
+                              <ImageIcon className='h-6 w-6 text-slate-300' />
+                            </div>
+                          )}
+                        </div>
+                        <div className='min-w-0'>
+                          <button
+                            type='button'
+                            className='text-left font-semibold text-slate-900 hover:text-blue-600 transition-colors truncate max-w-[340px]'
+                            onClick={() =>
+                              router.push(`/admin/cursos/${course.id}`)
+                            }
+                          >
+                            {course.titulo}
+                          </button>
+                          <p className='text-xs text-slate-500 mt-0.5'>
+                            Criado em {formatDate(course.createdAt)}
+                          </p>
+                        </div>
                       </div>
-                    </button>
-                  )}
-                  <div className='absolute top-3 left-3 flex gap-2'>
-                    {course.videoUrl && (
-                      <span className='px-2 py-1 rounded-full bg-blue-600 text-white text-xs font-medium flex items-center gap-1'>
-                        <Video className='h-3 w-3' />
-                        Vídeo
+                    </TableCell>
+
+                    <TableCell>
+                      <span className='inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10'>
+                        {course.categoria}
                       </span>
-                    )}
-                  </div>
-                  <div className='absolute bottom-3 right-3'>
-                    <span className='px-2 py-1 rounded-md bg-black/50 backdrop-blur-sm text-white text-xs font-medium flex items-center gap-1'>
-                      <Clock className='h-3 w-3' />
-                      {course.duration} min
-                    </span>
-                  </div>
-                </div>
-                <CardContent className='p-4 space-y-3'>
-                  <h3 className='font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600 transition-colors'>
-                    {course.title}
-                  </h3>
-                  <div className='flex items-center gap-2 flex-wrap'>
-                    <span className='px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs font-medium border border-blue-200'>
-                      {course.category}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium border ${level.bgColor} ${level.color} ${level.borderColor}`}
-                    >
-                      {level.label}
-                    </span>
-                  </div>
-                  <p className='text-sm text-slate-500 line-clamp-2'>
-                    {course.description}
-                  </p>
-                  <div className='flex items-center gap-4 text-xs text-slate-400'>
-                    <span className='flex items-center gap-1'>
-                      <Users className='h-3.5 w-3.5' />
-                      {course._count?.enrollments || 0} alunos
-                    </span>
-                    <span className='flex items-center gap-1'>
-                      <Calendar className='h-3.5 w-3.5' />
-                      {formatDate(course.createdAt)}
-                    </span>
-                  </div>
-                  <div className='flex gap-2 pt-2'>
-                    <Button
-                      size='sm'
-                      onClick={() => router.push(`/admin/cursos/${course.id}`)}
-                      className='flex-1 bg-slate-100 hover:bg-blue-600 text-slate-600 hover:text-white'
-                    >
-                      <Eye className='h-3.5 w-3.5 mr-1.5' />
-                      Ver detalhes
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={() => handleDelete(course.id, course.title)}
-                      disabled={deleting === course.id}
-                      className='border-slate-200 text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-600'
-                    >
-                      {deleting === course.id ? (
-                        <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                      ) : (
-                        <Trash2 className='h-3.5 w-3.5' />
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-      {filteredCourses.length > 0 && (
+                    </TableCell>
+
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium border ${level.bgColor} ${level.color} ${level.borderColor}`}
+                      >
+                        {level.label}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className='text-sm text-slate-700'>
+                      <div className='flex items-center gap-2'>
+                        <Users className='h-4 w-4 text-slate-400' />
+                        {enrollments}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border ${status.pill}`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
+                        />
+                        {status.label}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className='text-sm text-slate-700'>
+                      <div className='flex items-center gap-2'>
+                        <Clock className='h-4 w-4 text-slate-400' />
+                        {course.cargaHoraria} min
+                      </div>
+                    </TableCell>
+
+                    <TableCell className='pr-6'>
+                      <div className='flex items-center justify-end gap-1'>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          title='Ver detalhes'
+                          onClick={() =>
+                            router.push(`/admin/cursos/${course.id}`)
+                          }
+                          className='text-slate-500 hover:text-blue-600'
+                        >
+                          <Eye className='h-4 w-4' />
+                        </Button>
+
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          title={
+                            courseStatus === 'published'
+                              ? 'Despublicar'
+                              : 'Publicar'
+                          }
+                          disabled={togglingPublishId === course.id}
+                          onClick={() => void handlePublishToggle(course)}
+                          className='text-slate-500 hover:text-emerald-700'
+                        >
+                          {togglingPublishId === course.id ? (
+                            <Loader2 className='h-4 w-4 animate-spin' />
+                          ) : courseStatus === 'published' ? (
+                            <XCircle className='h-4 w-4' />
+                          ) : (
+                            <CheckCircle2 className='h-4 w-4' />
+                          )}
+                        </Button>
+
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          title='Excluir'
+                          onClick={() =>
+                            void handleDelete(course.id, course.titulo)
+                          }
+                          disabled={deleting === course.id}
+                          className='text-slate-500 hover:text-red-600'
+                        >
+                          {deleting === course.id ? (
+                            <Loader2 className='h-4 w-4 animate-spin' />
+                          ) : (
+                            <Trash2 className='h-4 w-4' />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+
+      {!loading && filteredCourses.length > 0 && (
         <p className='text-center text-sm text-slate-400'>
           Mostrando {filteredCourses.length} de {courses.length} cursos
         </p>

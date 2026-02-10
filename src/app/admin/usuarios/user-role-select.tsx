@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { usersService } from '@/lib/api/services/users.service';
 
 interface UserRoleSelectProps {
   userId: string;
@@ -21,15 +22,8 @@ export function UserRoleSelect({ userId, currentRole }: UserRoleSelectProps) {
   const handleChange = async (newRole: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      });
-
-      if (res.ok) {
-        setRole(newRole);
-      }
+      await usersService.updateRole(userId, newRole);
+      setRole(newRole);
     } catch (error) {
       console.error('Erro ao atualizar role:', error);
     } finally {

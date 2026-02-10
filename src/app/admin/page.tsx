@@ -1,84 +1,84 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Users,
   GraduationCap,
   Briefcase,
-  FileText,
   TrendingUp,
-  UserPlus,
   Award,
   Plus,
-  Upload,
   BarChart3,
-  Clock,
   ChevronRight,
   Layers,
   Sparkles,
-  Loader2,
 } from 'lucide-react';
+import { useHomeData } from '@/hooks';
+
+function StatCardSkeleton() {
+  return (
+    <Card className='bg-white border-slate-200 shadow-sm'>
+      <CardContent className='p-5'>
+        <div className='flex items-center justify-between'>
+          <div className='space-y-2'>
+            <Skeleton className='h-4 w-16 bg-slate-100' />
+            <Skeleton className='h-8 w-12 bg-slate-100' />
+          </div>
+          <Skeleton className='h-12 w-12 rounded-lg bg-slate-100' />
+        </div>
+        <Skeleton className='h-4 w-24 mt-3 bg-slate-100' />
+      </CardContent>
+    </Card>
+  );
+}
+
+function SecondaryStatSkeleton() {
+  return (
+    <Card className='bg-white border-slate-200 shadow-sm'>
+      <CardContent className='p-4'>
+        <div className='flex items-center justify-between'>
+          <div className='space-y-2'>
+            <Skeleton className='h-8 w-16 bg-slate-100' />
+            <Skeleton className='h-4 w-20 bg-slate-100' />
+          </div>
+          <Skeleton className='h-11 w-11 rounded-lg bg-slate-100' />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    users: 0,
-    courses: 0,
-    jobs: 0,
-    applications: 0,
-    enrollments: 0,
-    certificates: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const { data: homeData, isLoading, error } = useHomeData();
 
-  useEffect(() => {
-    // Simulate loading with fake stats
-    setTimeout(() => {
-      setStats({
-        users: 5,
-        courses: 6,
-        jobs: 5,
-        applications: 22,
-        enrollments: 272,
-        certificates: 4,
-      });
-      setLoading(false);
-    }, 500);
-  }, []);
+  const stats = homeData?.estatisticas;
 
   const statCards = [
     {
-      label: 'Usuários',
-      value: stats.users,
+      label: 'Candidatos',
+      value: stats?.totalCandidatos || 0,
       icon: Users,
-      color: 'from-blue-500 to-blue-600',
-      shadowColor: 'shadow-blue-500/20',
       href: '/admin/usuarios',
     },
     {
       label: 'Cursos',
-      value: stats.courses,
+      value: stats?.totalCursos || 0,
       icon: GraduationCap,
-      color: 'from-sky-500 to-cyan-600',
-      shadowColor: 'shadow-sky-500/20',
       href: '/admin/cursos',
     },
     {
       label: 'Vagas',
-      value: stats.jobs,
+      value: stats?.totalVagas || 0,
       icon: Briefcase,
-      color: 'from-indigo-500 to-blue-600',
-      shadowColor: 'shadow-indigo-500/20',
       href: '/admin/vagas',
     },
     {
-      label: 'Candidaturas',
-      value: stats.applications,
-      icon: FileText,
-      color: 'from-blue-600 to-indigo-600',
-      shadowColor: 'shadow-blue-500/20',
-      href: '/admin/vagas',
+      label: 'Ver Mais',
+      value: '→',
+      icon: TrendingUp,
+      href: '/admin/relatorios',
     },
   ];
 
@@ -87,74 +87,37 @@ export default function AdminDashboard() {
       label: 'Novo Curso',
       icon: Plus,
       href: '/admin/cursos/new',
-      color: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
+      color:
+        'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100',
     },
     {
-      label: 'Upload Vídeo',
-      icon: Upload,
-      href: '/admin/videos',
-      color: 'bg-sky-50 text-sky-600 hover:bg-sky-100',
+      label: 'Trilha de Curso',
+      icon: GraduationCap,
+      href: '/admin/cursos',
+      color:
+        'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100',
     },
     {
       label: 'Gerenciar Vagas',
       icon: Briefcase,
       href: '/admin/vagas',
-      color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100',
+      color:
+        'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200',
     },
     {
       label: 'Ver Usuários',
       icon: Users,
       href: '/admin/usuarios',
-      color: 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+      color:
+        'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200',
     },
   ];
-
-  const recentActivities = [
-    {
-      action: 'Novo usuário registrado',
-      time: 'Há 5 minutos',
-      icon: UserPlus,
-      color: 'text-blue-500',
-    },
-    {
-      action: 'Candidatura enviada',
-      time: 'Há 15 minutos',
-      icon: FileText,
-      color: 'text-indigo-500',
-    },
-    {
-      action: 'Curso concluído',
-      time: 'Há 1 hora',
-      icon: GraduationCap,
-      color: 'text-emerald-500',
-    },
-    {
-      action: 'Nova vaga criada',
-      time: 'Há 2 horas',
-      icon: Briefcase,
-      color: 'text-sky-500',
-    },
-    {
-      action: 'Certificado emitido',
-      time: 'Há 3 horas',
-      icon: Award,
-      color: 'text-amber-500',
-    },
-  ];
-
-  if (loading) {
-    return (
-      <div className='flex items-center justify-center h-64'>
-        <Loader2 className='h-8 w-8 animate-spin text-blue-500' />
-      </div>
-    );
-  }
 
   return (
     <div className='space-y-8'>
       {/* Header */}
       <div className='flex items-center gap-3'>
-        <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
+        <div className='p-2 rounded-lg bg-blue-600 shadow-sm'>
           <Layers className='h-6 w-6 text-white' />
         </div>
         <div>
@@ -165,99 +128,125 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {error && (
+        <Card className='bg-blue-50 border-blue-200'>
+          <CardContent className='p-4 flex items-center gap-2'>
+            <BarChart3 className='h-5 w-5 text-blue-600' />
+            <p className='text-blue-700'>
+              Estatísticas ainda não disponíveis. Os dados serão exibidos quando
+              houver atividade na plataforma.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Grid */}
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Link key={stat.label} href={stat.href}>
-              <Card
-                className={`group bg-gradient-to-br ${stat.color} border-0 shadow-lg ${stat.shadowColor} hover:scale-[1.02] transition-transform cursor-pointer`}
-              >
-                <CardContent className='p-5'>
-                  <div className='flex items-center justify-between'>
-                    <div>
-                      <p className='text-white/80 text-sm font-medium'>
-                        {stat.label}
-                      </p>
-                      <p className='text-4xl font-bold text-white mt-1'>
-                        {stat.value}
-                      </p>
-                    </div>
-                    <div className='p-3 rounded-xl bg-white/20'>
-                      <Icon className='h-6 w-6 text-white' />
-                    </div>
-                  </div>
-                  <div className='flex items-center gap-1 mt-3 text-white/70 text-sm group-hover:text-white transition-colors'>
-                    <span>Ver detalhes</span>
-                    <ChevronRight className='h-4 w-4' />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <StatCardSkeleton key={i} />
+            ))
+          : statCards.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <Link key={stat.label} href={stat.href}>
+                  <Card className='group bg-white border-slate-200 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer shadow-sm'>
+                    <CardContent className='p-5'>
+                      <div className='flex items-center justify-between'>
+                        <div>
+                          <p className='text-slate-500 text-sm font-medium'>
+                            {stat.label}
+                          </p>
+                          <p className='text-3xl font-bold text-slate-900 mt-1'>
+                            {stat.value}
+                          </p>
+                        </div>
+                        <div className='p-3 rounded-lg bg-blue-50'>
+                          <Icon className='h-6 w-6 text-blue-600' />
+                        </div>
+                      </div>
+                      <div className='flex items-center gap-1 mt-3 text-blue-600 text-sm font-medium group-hover:text-blue-700 transition-colors'>
+                        <span>Ver detalhes</span>
+                        <ChevronRight className='h-4 w-4' />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
       </div>
 
       {/* Secondary Stats */}
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.enrollments}
-                </p>
-                <p className='text-sm text-slate-500'>Matrículas</p>
-              </div>
-              <div className='p-3 rounded-xl bg-emerald-50'>
-                <TrendingUp className='h-5 w-5 text-emerald-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.certificates}
-                </p>
-                <p className='text-sm text-slate-500'>Certificados</p>
-              </div>
-              <div className='p-3 rounded-xl bg-amber-50'>
-                <Award className='h-5 w-5 text-amber-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm col-span-2 lg:col-span-1'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.users > 0
-                    ? Math.round((stats.enrollments / stats.users) * 100)
-                    : 0}
-                  %
-                </p>
-                <p className='text-sm text-slate-500'>Engajamento</p>
-              </div>
-              <div className='p-3 rounded-xl bg-blue-50'>
-                <BarChart3 className='h-5 w-5 text-blue-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          <>
+            <SecondaryStatSkeleton />
+            <SecondaryStatSkeleton />
+            <SecondaryStatSkeleton />
+          </>
+        ) : (
+          <>
+            <Card className='bg-white border-slate-200 shadow-sm'>
+              <CardContent className='p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {homeData?.cursosPopulares?.length || 0}
+                    </p>
+                    <p className='text-sm text-slate-500'>Cursos Populares</p>
+                  </div>
+                  <div className='p-3 rounded-lg bg-blue-50'>
+                    <TrendingUp className='h-5 w-5 text-blue-600' />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className='bg-white border-slate-200 shadow-sm'>
+              <CardContent className='p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {homeData?.vagasDestaque?.length || 0}
+                    </p>
+                    <p className='text-sm text-slate-500'>Vagas em Destaque</p>
+                  </div>
+                  <div className='p-3 rounded-lg bg-blue-50'>
+                    <Award className='h-5 w-5 text-blue-600' />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className='bg-white border-slate-200 shadow-sm col-span-2 lg:col-span-1'>
+              <CardContent className='p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {stats
+                        ? Math.round(
+                            (stats.totalVagas / (stats.totalCursos || 1)) * 100,
+                          )
+                        : 0}
+                      %
+                    </p>
+                    <p className='text-sm text-slate-500'>Taxa Vaga/Curso</p>
+                  </div>
+                  <div className='p-3 rounded-lg bg-blue-50'>
+                    <BarChart3 className='h-5 w-5 text-blue-600' />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
-      {/* Quick Actions & Recent Activity */}
+      {/* Quick Actions & Featured Content */}
       <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
         {/* Quick Actions */}
         <Card className='bg-white border-slate-200 shadow-sm'>
           <div className='p-6 pb-3'>
             <h3 className='text-slate-900 font-semibold flex items-center gap-2'>
-              <Sparkles className='h-5 w-5 text-blue-500' />
+              <Sparkles className='h-5 w-5 text-blue-600' />
               Ações Rápidas
             </h3>
             <p className='text-slate-500 text-sm'>
@@ -285,38 +274,58 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* Featured Jobs */}
         <Card className='bg-white border-slate-200 shadow-sm'>
           <div className='p-6 pb-3'>
             <h3 className='text-slate-900 font-semibold flex items-center gap-2'>
-              <Clock className='h-5 w-5 text-blue-500' />
-              Atividade Recente
+              <Briefcase className='h-5 w-5 text-blue-600' />
+              Vagas em Destaque
             </h3>
             <p className='text-slate-500 text-sm'>
-              Últimas ações na plataforma
+              Principais oportunidades ativas
             </p>
           </div>
           <CardContent>
             <div className='space-y-3'>
-              {recentActivities.map((activity, i) => {
-                const Icon = activity.icon;
-                return (
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
                   <div
                     key={i}
-                    className='flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors'
+                    className='flex items-center gap-3 p-3 bg-slate-50 rounded-lg'
                   >
-                    <div className='p-2 rounded-lg bg-white shadow-sm'>
-                      <Icon className={`h-4 w-4 ${activity.color}`} />
-                    </div>
-                    <div className='flex-1'>
-                      <p className='text-slate-700 text-sm'>
-                        {activity.action}
-                      </p>
-                      <p className='text-slate-400 text-xs'>{activity.time}</p>
+                    <Skeleton className='h-8 w-8 rounded-lg bg-slate-200' />
+                    <div className='flex-1 space-y-1'>
+                      <Skeleton className='h-4 w-32 bg-slate-200' />
+                      <Skeleton className='h-3 w-24 bg-slate-200' />
                     </div>
                   </div>
-                );
-              })}
+                ))
+              ) : homeData?.vagasDestaque &&
+                homeData.vagasDestaque.length > 0 ? (
+                homeData.vagasDestaque.slice(0, 5).map((vaga) => (
+                  <Link key={vaga.id} href='/admin/vagas'>
+                    <div className='flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer'>
+                      <div className='p-2 rounded-lg bg-white shadow-sm'>
+                        <Briefcase className='h-4 w-4 text-blue-600' />
+                      </div>
+                      <div className='flex-1'>
+                        <p className='text-slate-700 text-sm font-medium'>
+                          {vaga.titulo}
+                        </p>
+                        <p className='text-slate-400 text-xs'>
+                          {vaga.empresa?.nome} • {vaga.localizacao}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className='text-center py-4'>
+                  <p className='text-slate-500 text-sm'>
+                    Nenhuma vaga em destaque
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

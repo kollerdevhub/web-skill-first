@@ -1,0 +1,13 @@
+export const COLLECTIONS = {
+  USERS: 'users',
+  CURSOS: 'cursos',
+  MODULOS: 'modulos',
+  VAGAS: 'vagas',
+  EMPRESAS: 'empresas',
+  CANDIDATOS: 'candidatos',
+  CANDIDATURAS: 'candidaturas',
+  INSCRICOES: 'inscricoes',
+  CERTIFICADOS: 'certificados',
+  TESTES: 'testes',
+  RESOURCES: 'resources',
+} as const;

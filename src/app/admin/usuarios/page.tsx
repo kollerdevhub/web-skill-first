@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { UserRoleSelect } from './user-role-select';
 import {
   Users,
@@ -12,78 +13,9 @@ import {
   Mail,
   Calendar,
   ShieldCheck,
-  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  image: string;
-  role: string;
-  createdAt: string;
-  enrollments: number;
-  applications: number;
-  certificates: number;
-}
-
-const initialUsers: User[] = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@webskillfirst.com.br',
-    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-    role: 'admin',
-    createdAt: '2024-01-01T00:00:00Z',
-    enrollments: 0,
-    applications: 0,
-    certificates: 0,
-  },
-  {
-    id: '2',
-    name: 'Maria Silva',
-    email: 'maria@email.com',
-    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maria',
-    role: 'candidate',
-    createdAt: '2024-01-15T00:00:00Z',
-    enrollments: 3,
-    applications: 2,
-    certificates: 1,
-  },
-  {
-    id: '3',
-    name: 'João Santos',
-    email: 'joao@email.com',
-    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=joao',
-    role: 'candidate',
-    createdAt: '2024-02-01T00:00:00Z',
-    enrollments: 5,
-    applications: 4,
-    certificates: 2,
-  },
-  {
-    id: '4',
-    name: 'Ana Costa',
-    email: 'ana@email.com',
-    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ana',
-    role: 'candidate',
-    createdAt: '2024-02-10T00:00:00Z',
-    enrollments: 2,
-    applications: 1,
-    certificates: 0,
-  },
-  {
-    id: '5',
-    name: 'Pedro Lima',
-    email: 'pedro@email.com',
-    image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=pedro',
-    role: 'candidate',
-    createdAt: '2024-02-20T00:00:00Z',
-    enrollments: 4,
-    applications: 3,
-    certificates: 1,
-  },
-];
+import { usersService, AdminUser } from '@/lib/api/services/users.service';
 
 const roleConfig: Record<
   string,
@@ -101,34 +33,89 @@ const roleConfig: Record<
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
   },
+  // Legacy or other roles
+  gestor: {
+    label: 'Gestor',
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+  },
+  recrutador: {
+    label: 'Recrutador',
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+  },
 };
 
+function UserCardSkeleton() {
+  return (
+    <Card className='bg-white border-slate-200 shadow-sm'>
+      <CardHeader className='pb-3'>
+        <div className='flex items-start gap-4'>
+          <Skeleton className='h-12 w-12 rounded-full bg-slate-100' />
+          <div className='flex-1 space-y-2'>
+            <Skeleton className='h-5 w-32 bg-slate-100' />
+            <Skeleton className='h-4 w-48 bg-slate-100' />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className='space-y-4'>
+        <Skeleton className='h-6 w-20 bg-slate-100' />
+        <div className='grid grid-cols-3 gap-2'>
+          <Skeleton className='h-16 bg-slate-100 rounded-lg' />
+          <Skeleton className='h-16 bg-slate-100 rounded-lg' />
+          <Skeleton className='h-16 bg-slate-100 rounded-lg' />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatCardSkeleton() {
+  return (
+    <Card className='bg-white border-slate-200 shadow-sm'>
+      <CardContent className='p-4'>
+        <div className='flex items-center justify-between'>
+          <div className='space-y-2'>
+            <Skeleton className='h-8 w-12 bg-slate-100' />
+            <Skeleton className='h-4 w-16 bg-slate-100' />
+          </div>
+          <Skeleton className='h-11 w-11 rounded-xl bg-slate-100' />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminUsuariosPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setUsers(initialUsers);
-      setLoading(false);
-    }, 500);
+    fetchUsers();
   }, []);
+
+  async function fetchUsers() {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await usersService.list();
+      setUsers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const stats = {
     total: users.length,
     admins: users.filter((u) => u.role === 'admin').length,
-    totalEnrollments: users.reduce((acc, u) => acc + u.enrollments, 0),
-    totalCertificates: users.reduce((acc, u) => acc + u.certificates, 0),
+    totalEnrollments: users.reduce((acc, u) => acc + (u.enrollments || 0), 0),
+    totalCertificates: users.reduce((acc, u) => acc + (u.certificates || 0), 0),
   };
-
-  if (loading) {
-    return (
-      <div className='flex items-center justify-center h-64'>
-        <Loader2 className='h-8 w-8 animate-spin text-blue-500' />
-      </div>
-    );
-  }
 
   return (
     <div className='space-y-6'>
@@ -142,143 +129,180 @@ export default function AdminUsuariosPage() {
         </div>
       </div>
 
-      <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.total}
-                </p>
-                <p className='text-sm text-slate-500'>Total</p>
-              </div>
-              <div className='p-3 rounded-xl bg-blue-50'>
-                <Users className='h-5 w-5 text-blue-500' />
-              </div>
-            </div>
+      {error && (
+        <Card className='bg-red-50 border-red-200'>
+          <CardContent className='p-4 flex items-center gap-2'>
+            <AlertCircle className='h-5 w-5 text-red-600' />
+            <p className='text-red-600'>{error}</p>
           </CardContent>
         </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.admins}
-                </p>
-                <p className='text-sm text-slate-500'>Admins</p>
-              </div>
-              <div className='p-3 rounded-xl bg-rose-50'>
-                <ShieldCheck className='h-5 w-5 text-rose-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.totalEnrollments}
-                </p>
-                <p className='text-sm text-slate-500'>Matrículas</p>
-              </div>
-              <div className='p-3 rounded-xl bg-emerald-50'>
-                <GraduationCap className='h-5 w-5 text-emerald-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className='bg-white border-slate-200 shadow-sm'>
-          <CardContent className='p-4'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-2xl font-bold text-slate-900'>
-                  {stats.totalCertificates}
-                </p>
-                <p className='text-sm text-slate-500'>Certificados</p>
-              </div>
-              <div className='p-3 rounded-xl bg-amber-50'>
-                <Award className='h-5 w-5 text-amber-500' />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-        {users.map((user) => {
-          const role = roleConfig[user.role] || roleConfig.candidate;
-          return (
-            <Card
-              key={user.id}
-              className='group bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
-            >
-              <CardHeader className='pb-3'>
-                <div className='flex items-start gap-4'>
-                  <Avatar className='h-12 w-12 ring-2 ring-slate-100 group-hover:ring-blue-100 transition-all'>
-                    <AvatarImage src={user.image || ''} />
-                    <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white font-medium'>
-                      {user.name?.charAt(0).toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className='flex-1 min-w-0'>
-                    <CardTitle className='text-slate-900 text-base truncate group-hover:text-blue-600 transition-colors'>
-                      {user.name || 'Sem nome'}
-                    </CardTitle>
-                    <p className='text-sm text-slate-500 truncate flex items-center gap-1 mt-1'>
-                      <Mail className='h-3 w-3' />
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className='space-y-4'>
+      <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+        {loading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <Card className='bg-white border-slate-200 shadow-sm'>
+              <CardContent className='p-4'>
                 <div className='flex items-center justify-between'>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium border ${role.bgColor} ${role.color} ${role.borderColor}`}
-                  >
-                    {role.label}
-                  </span>
-                  <UserRoleSelect userId={user.id} currentRole={user.role} />
-                </div>
-                <div className='grid grid-cols-3 gap-2'>
-                  <div className='p-2 bg-slate-50 rounded-lg text-center'>
-                    <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
-                      <GraduationCap className='h-3 w-3' />
-                    </div>
-                    <p className='text-slate-900 font-medium'>
-                      {user.enrollments}
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {stats.total}
                     </p>
-                    <p className='text-slate-500 text-xs'>Cursos</p>
+                    <p className='text-sm text-slate-500'>Total</p>
                   </div>
-                  <div className='p-2 bg-slate-50 rounded-lg text-center'>
-                    <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
-                      <Briefcase className='h-3 w-3' />
-                    </div>
-                    <p className='text-slate-900 font-medium'>
-                      {user.applications}
-                    </p>
-                    <p className='text-slate-500 text-xs'>Vagas</p>
+                  <div className='p-3 rounded-xl bg-blue-50'>
+                    <Users className='h-5 w-5 text-blue-500' />
                   </div>
-                  <div className='p-2 bg-slate-50 rounded-lg text-center'>
-                    <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
-                      <Award className='h-3 w-3' />
-                    </div>
-                    <p className='text-slate-900 font-medium'>
-                      {user.certificates}
-                    </p>
-                    <p className='text-slate-500 text-xs'>Certs</p>
-                  </div>
-                </div>
-                <div className='flex items-center gap-1 text-xs text-slate-400'>
-                  <Calendar className='h-3 w-3' />
-                  Cadastrado em{' '}
-                  {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                 </div>
               </CardContent>
             </Card>
-          );
-        })}
+            <Card className='bg-white border-slate-200 shadow-sm'>
+              <CardContent className='p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {stats.admins}
+                    </p>
+                    <p className='text-sm text-slate-500'>Admins</p>
+                  </div>
+                  <div className='p-3 rounded-xl bg-rose-50'>
+                    <ShieldCheck className='h-5 w-5 text-rose-500' />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className='bg-white border-slate-200 shadow-sm'>
+              <CardContent className='p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {stats.totalEnrollments}
+                    </p>
+                    <p className='text-sm text-slate-500'>Matrículas</p>
+                  </div>
+                  <div className='p-3 rounded-xl bg-emerald-50'>
+                    <GraduationCap className='h-5 w-5 text-emerald-500' />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className='bg-white border-slate-200 shadow-sm'>
+              <CardContent className='p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-2xl font-bold text-slate-900'>
+                      {stats.totalCertificates}
+                    </p>
+                    <p className='text-sm text-slate-500'>Certificados</p>
+                  </div>
+                  <div className='p-3 rounded-xl bg-amber-50'>
+                    <Award className='h-5 w-5 text-amber-500' />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+        {loading ? (
+          <>
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+          </>
+        ) : users.length === 0 ? (
+          <Card className='col-span-full bg-white border-slate-200'>
+            <CardContent className='p-8 text-center'>
+              <div className='inline-flex p-4 rounded-full bg-slate-100 mb-4'>
+                <Users className='h-10 w-10 text-slate-400' />
+              </div>
+              <p className='text-slate-600'>Nenhum usuário encontrado</p>
+            </CardContent>
+          </Card>
+        ) : (
+          users.map((user) => {
+            const role = roleConfig[user.role] || roleConfig.candidate;
+            return (
+              <Card
+                key={user.id}
+                className='group bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
+              >
+                <CardHeader className='pb-3'>
+                  <div className='flex items-start gap-4'>
+                    <Avatar className='h-12 w-12 ring-2 ring-slate-100 group-hover:ring-blue-100 transition-all'>
+                      <AvatarImage src={user.image || undefined} />
+                      <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white font-medium'>
+                        {user.name?.charAt(0).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className='flex-1 min-w-0'>
+                      <CardTitle className='text-slate-900 text-base truncate group-hover:text-blue-600 transition-colors'>
+                        {user.name || 'Sem nome'}
+                      </CardTitle>
+                      <p className='text-sm text-slate-500 truncate flex items-center gap-1 mt-1'>
+                        <Mail className='h-3 w-3' />
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div className='flex items-center justify-between'>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium border ${role.bgColor} ${role.color} ${role.borderColor}`}
+                    >
+                      {role.label}
+                    </span>
+                    <UserRoleSelect userId={user.id} currentRole={user.role} />
+                  </div>
+                  <div className='grid grid-cols-3 gap-2'>
+                    <div className='p-2 bg-slate-50 rounded-lg text-center'>
+                      <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
+                        <GraduationCap className='h-3 w-3' />
+                      </div>
+                      <p className='text-slate-900 font-medium'>
+                        {user.enrollments || 0}
+                      </p>
+                      <p className='text-slate-500 text-xs'>Cursos</p>
+                    </div>
+                    <div className='p-2 bg-slate-50 rounded-lg text-center'>
+                      <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
+                        <Briefcase className='h-3 w-3' />
+                      </div>
+                      <p className='text-slate-900 font-medium'>
+                        {user.applications || 0}
+                      </p>
+                      <p className='text-slate-500 text-xs'>Vagas</p>
+                    </div>
+                    <div className='p-2 bg-slate-50 rounded-lg text-center'>
+                      <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
+                        <Award className='h-3 w-3' />
+                      </div>
+                      <p className='text-slate-900 font-medium'>
+                        {user.certificates || 0}
+                      </p>
+                      <p className='text-slate-500 text-xs'>Certs</p>
+                    </div>
+                  </div>
+                  <div className='flex items-center gap-1 text-xs text-slate-400'>
+                    <Calendar className='h-3 w-3' />
+                    Cadastrado em{' '}
+                    {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -10,7 +10,6 @@ import {
   Users,
   GraduationCap,
   Briefcase,
-  Video,
   Settings,
   ArrowLeft,
   Home,
@@ -19,10 +18,10 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
+import { signOutUser } from '@/lib/firebase-auth';
 
 interface AdminClientLayoutProps {
-  session: any;
   children: React.ReactNode;
 }
 
@@ -31,29 +30,34 @@ const navItems = [
   { label: 'Usuários', href: '/admin/usuarios', icon: Users },
   { label: 'Cursos', href: '/admin/cursos', icon: GraduationCap },
   { label: 'Vagas', href: '/admin/vagas', icon: Briefcase },
-  { label: 'Vídeos', href: '/admin/videos', icon: Video },
   { label: 'Configurações', href: '/admin/config', icon: Settings },
 ];
 
 export default function AdminClientLayout({
-  session,
   children,
 }: AdminClientLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useFirebaseAuth();
+  const router = useRouter();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
 
+  const handleLogout = async () => {
+    await signOutUser();
+    router.push('/');
+  };
+
   return (
-    <div className='min-h-screen bg-slate-50 flex flex-col md:flex-row'>
+    <div className='min-h-screen bg-[#fafbfc] flex flex-col md:flex-row'>
       {/* Mobile Top Header */}
       <header className='md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-50'>
         <Link
           href='/admin'
           className='text-xl font-bold text-slate-900 flex items-center gap-2'
         >
-          <div className='p-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/20'>
+          <div className='p-1.5 rounded-lg bg-blue-600 shadow-sm'>
             <Sparkles className='h-4 w-4 text-white' />
           </div>
           <span>Admin Panel</span>
@@ -81,17 +85,15 @@ export default function AdminClientLayout({
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className='p-5 border-b border-slate-100 hidden md:block'>
+        <div className='p-5 border-b border-slate-200 hidden md:block'>
           <Link
             href='/admin'
-            className='text-2xl font-bold flex items-center gap-2'
+            className='text-xl font-bold flex items-center gap-2 text-slate-900'
           >
-            <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
+            <div className='p-2 rounded-lg bg-blue-600 shadow-sm'>
               <Sparkles className='h-5 w-5 text-white' />
             </div>
-            <span className='bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent text-xl'>
-              Web Skill First
-            </span>
+            <span>Web Skill First</span>
           </Link>
         </div>
 
@@ -104,14 +106,14 @@ export default function AdminClientLayout({
                 key={item.href}
                 href={item.href}
                 onClick={closeSidebar}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group ${
                   isActive
                     ? 'bg-blue-50 text-blue-600'
-                    : 'text-slate-600 hover:bg-blue-50/50 hover:text-blue-500'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <Icon
-                  className={`h-5 w-5 ${isActive ? 'text-blue-500' : 'group-hover:text-blue-500'}`}
+                  className={`h-5 w-5 shrink-0 ${isActive ? 'text-blue-600' : ''}`}
                 />
                 <span className='font-medium'>{item.label}</span>
               </Link>
@@ -120,17 +122,17 @@ export default function AdminClientLayout({
         </nav>
 
         {/* Quick links */}
-        <div className='p-4 border-t border-slate-100 space-y-2'>
+        <div className='p-4 border-t border-slate-200 space-y-2'>
           <Link
             href='/dashboard'
-            className='flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors'
+            className='flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 transition-colors'
           >
             <ArrowLeft className='h-4 w-4' />
             Voltar ao Dashboard
           </Link>
           <Link
             href='/'
-            className='flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors'
+            className='flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 transition-colors'
           >
             <Home className='h-4 w-4' />
             Ir para Home
@@ -138,26 +140,26 @@ export default function AdminClientLayout({
         </div>
 
         {/* User section */}
-        <div className='p-4 border-t border-slate-100 bg-slate-50/50 mt-auto'>
-          <div className='bg-white p-3 rounded-2xl border border-slate-200 shadow-sm'>
+        <div className='p-4 border-t border-slate-200 bg-slate-50/50 mt-auto'>
+          <div className='bg-white p-3 rounded-xl border border-slate-200 shadow-sm'>
             <div className='flex items-center gap-3 mb-3'>
               <Avatar className='h-10 w-10 ring-2 ring-blue-50'>
-                <AvatarImage src={session.user?.image || ''} />
-                <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white font-medium'>
-                  {session.user?.name?.charAt(0) || 'A'}
+                <AvatarImage src={user?.photoURL || undefined} />
+                <AvatarFallback className='bg-blue-600 text-white font-medium'>
+                  {user?.displayName?.charAt(0) || 'A'}
                 </AvatarFallback>
               </Avatar>
               <div className='flex-1 min-w-0'>
-                <p className='text-sm font-semibold text-blue-900 truncate'>
-                  {session.user?.name}
+                <p className='text-sm font-semibold text-slate-900 truncate'>
+                  {user?.displayName}
                 </p>
-                <p className='text-[10px] text-blue-600 font-bold uppercase tracking-wider'>
+                <p className='text-[10px] text-blue-600 font-semibold uppercase tracking-wider'>
                   Administrador
                 </p>
               </div>
             </div>
             <Button
-              onClick={() => signOut({ callbackUrl: '/' })}
+              onClick={handleLogout}
               variant='ghost'
               size='sm'
               className='w-full justify-start text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg h-9 transition-all'
@@ -170,7 +172,7 @@ export default function AdminClientLayout({
       </aside>
 
       {/* Main content */}
-      <main className='flex-1 overflow-auto w-full bg-slate-50'>
+      <main className='flex-1 overflow-auto w-full bg-[#fafbfc]'>
         <div className='p-4 md:p-8 max-w-7xl mx-auto'>{children}</div>
       </main>
     </div>

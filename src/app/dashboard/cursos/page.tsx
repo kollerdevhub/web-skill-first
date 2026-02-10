@@ -1,6 +1,5 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -10,71 +9,15 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GraduationCap, Clock, User, Play } from 'lucide-react';
-
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  duration: number;
-  instructor: string;
-}
-
-const fetchCourses = async (): Promise<Course[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  return [
-    {
-      id: '1',
-      title: 'React Avançado',
-      description: 'Domine hooks, context, e padrões avançados do React',
-      thumbnail: '📘',
-      duration: 12,
-      instructor: 'João Silva',
-    },
-    {
-      id: '2',
-      title: 'Node.js do Zero ao Deploy',
-      description: 'Construa APIs RESTful profissionais com Node.js',
-      thumbnail: '📗',
-      duration: 15,
-      instructor: 'Maria Santos',
-    },
-    {
-      id: '3',
-      title: 'TypeScript Completo',
-      description: 'Tipagem avançada e boas práticas com TypeScript',
-      thumbnail: '📙',
-      duration: 10,
-      instructor: 'Pedro Costa',
-    },
-    {
-      id: '4',
-      title: 'Next.js na Prática',
-      description: 'Construa aplicações full-stack com Next.js',
-      thumbnail: '📕',
-      duration: 8,
-      instructor: 'Ana Lima',
-    },
-    {
-      id: '5',
-      title: 'Docker e Kubernetes',
-      description: 'Containerização e orquestração de aplicações',
-      thumbnail: '📓',
-      duration: 14,
-      instructor: 'Carlos Mendes',
-    },
-    {
-      id: '6',
-      title: 'AWS para Desenvolvedores',
-      description: 'Deploy e infraestrutura na nuvem com AWS',
-      thumbnail: '📔',
-      duration: 16,
-      instructor: 'Lucia Ferreira',
-    },
-  ];
-};
+import {
+  GraduationCap,
+  Clock,
+  Play,
+  BookOpen,
+  AlertCircle,
+} from 'lucide-react';
+import { useMinhasInscricoes } from '@/hooks';
+import Link from 'next/link';
 
 function CourseCardSkeleton() {
   return (
@@ -93,14 +36,7 @@ function CourseCardSkeleton() {
 }
 
 export default function CursosPage() {
-  const {
-    data: courses,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ['courses'],
-    queryFn: fetchCourses,
-  });
+  const { data: inscricoes, isLoading, error } = useMinhasInscricoes();
 
   return (
     <div className='space-y-6'>
@@ -118,7 +54,8 @@ export default function CursosPage() {
 
       {error && (
         <Card className='bg-red-50 border-red-200'>
-          <CardContent className='p-4'>
+          <CardContent className='p-4 flex items-center gap-2'>
+            <AlertCircle className='h-5 w-5 text-red-600' />
             <p className='text-red-600'>
               Erro ao carregar cursos. Tente novamente.
             </p>
@@ -136,34 +73,94 @@ export default function CursosPage() {
             <CourseCardSkeleton />
             <CourseCardSkeleton />
           </>
+        ) : inscricoes && inscricoes.length > 0 ? (
+          inscricoes.map((inscricao) => {
+            const curso = inscricao.curso;
+            if (!curso) return null;
+
+            return (
+              <Card
+                key={inscricao.id}
+                className='group bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
+              >
+                <CardHeader>
+                  {curso.thumbnailUrl ? (
+                    <img
+                      src={curso.thumbnailUrl}
+                      alt={curso.titulo}
+                      className='h-32 w-full object-cover rounded-lg mb-2'
+                    />
+                  ) : (
+                    <div className='h-32 w-full bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg mb-2 flex items-center justify-center'>
+                      <BookOpen className='h-12 w-12 text-blue-400' />
+                    </div>
+                  )}
+                  <CardTitle className='text-slate-900 group-hover:text-blue-600 transition-colors'>
+                    {curso.titulo}
+                  </CardTitle>
+                  <CardDescription className='text-slate-500 flex items-center gap-2'>
+                    <Clock className='h-3 w-3' />
+                    {curso.totalModulos || 0} módulos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  {/* Progress */}
+                  <div className='space-y-2'>
+                    <div className='flex justify-between text-sm'>
+                      <span className='text-slate-500'>Progresso</span>
+                      <span className='text-blue-600 font-medium'>
+                        {inscricao.progressoPercentual}%
+                      </span>
+                    </div>
+                    <div className='w-full bg-slate-100 rounded-full h-2'>
+                      <div
+                        className='bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all'
+                        style={{ width: `${inscricao.progressoPercentual}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status badge */}
+                  <div className='flex items-center justify-between'>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        inscricao.status === 'concluido'
+                          ? 'text-green-600 bg-green-50'
+                          : 'text-blue-600 bg-blue-50'
+                      }`}
+                    >
+                      {inscricao.status === 'concluido'
+                        ? 'Concluído'
+                        : 'Em andamento'}
+                    </span>
+                  </div>
+
+                  <Link href={`/dashboard/cursos/${inscricao.cursoId}`}>
+                    <Button className='w-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'>
+                      <Play className='h-4 w-4 mr-2' />
+                      {inscricao.status === 'concluido'
+                        ? 'Revisar'
+                        : 'Continuar'}
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            );
+          })
         ) : (
-          courses?.map((course) => (
-            <Card
-              key={course.id}
-              className='group bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
-            >
-              <CardHeader>
-                <div className='text-5xl mb-2'>{course.thumbnail}</div>
-                <CardTitle className='text-slate-900 group-hover:text-blue-600 transition-colors'>
-                  {course.title}
-                </CardTitle>
-                <CardDescription className='text-slate-500 flex items-center gap-2'>
-                  <User className='h-3 w-3' />
-                  {course.instructor}
-                  <span className='text-slate-300'>•</span>
-                  <Clock className='h-3 w-3' />
-                  {course.duration}h
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <p className='text-slate-600 text-sm'>{course.description}</p>
-                <Button className='w-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'>
-                  <Play className='h-4 w-4 mr-2' />
-                  Acessar Curso
+          <Card className='bg-slate-50 border-slate-200 col-span-full'>
+            <CardContent className='p-8 text-center'>
+              <GraduationCap className='h-12 w-12 text-slate-300 mx-auto mb-4' />
+              <p className='text-slate-500 mb-4'>
+                Você ainda não está inscrito em nenhum curso.
+              </p>
+              <Link href='/dashboard/explorar-cursos'>
+                <Button className='bg-blue-600 hover:bg-blue-700'>
+                  Explorar Cursos
                 </Button>
-              </CardContent>
-            </Card>
-          ))
+              </Link>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

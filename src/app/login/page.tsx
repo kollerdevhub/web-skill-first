@@ -1,55 +1,88 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { Sparkles, ArrowLeft, Loader2 } from 'lucide-react';
+
+import { signInWithGoogle } from '@/lib/firebase-auth';
+import { useRouter } from 'next/navigation';
+import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { user, isAdmin, loading } = useFirebaseAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      if (isAdmin) {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [user, isAdmin, loading, router]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithGoogle();
+      // Redirection is handled by the useEffect above
+    } catch (error) {
+      console.error('Login failed', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-[#fafbfc]'>
+        <Loader2 className='h-8 w-8 animate-spin text-blue-600' />
+      </div>
+    );
+  }
+
   return (
-    <div className='min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white'>
+    <div className='min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white lg:bg-[#fafbfc]'>
       {/* Left Side: Marketing/Branding (Hidden on Mobile) */}
-      <div className='hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 relative overflow-hidden'>
-        {/* Abstract Background Shapes */}
-        <div className='absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl' />
-        <div className='absolute bottom-0 left-0 w-64 h-64 bg-blue-400/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl' />
+      <div className='hidden lg:flex flex-col justify-between p-12 bg-blue-600 relative overflow-hidden'>
+        <div className='absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl' />
+        <div className='absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl' />
 
         <div className='relative z-10'>
           <Link href='/' className='flex items-center gap-3 group'>
-            <div className='p-3 rounded-2xl bg-white shadow-xl shadow-blue-900/20 group-hover:scale-110 transition-transform'>
+            <div className='p-3 rounded-lg bg-white shadow-sm group-hover:scale-105 transition-transform'>
               <Sparkles className='h-8 w-8 text-blue-600' />
             </div>
-            <span className='text-3xl font-bold text-white tracking-tight'>
+            <span className='text-2xl font-bold text-white tracking-tight'>
               Web Skill First
             </span>
           </Link>
         </div>
 
         <div className='relative z-10 max-w-lg mb-20'>
-          <h2 className='text-5xl font-bold text-white leading-tight mb-6'>
-            Impulsione sua <span className='text-blue-200'>carreira</span> com
+          <h2 className='text-4xl font-bold text-white leading-tight mb-6'>
+            Impulsione sua <span className='text-blue-100'>carreira</span> com
             novas habilidades.
           </h2>
-          <p className='text-xl text-blue-100 leading-relaxed font-light'>
+          <p className='text-lg text-blue-100/90 leading-relaxed'>
             Acesse os melhores cursos, encontre vagas exclusivas e conquiste
             certificados reconhecidos no mercado. Tudo em um só lugar.
           </p>
         </div>
 
-        <div className='relative z-10 flex items-center gap-6 text-sm text-blue-100/60'>
+        <div className='relative z-10 flex items-center gap-6 text-sm text-blue-100/70'>
           <span>© 2026 Web Skill First</span>
-          <div className='h-1 w-1 bg-blue-100/40 rounded-full' />
+          <div className='h-1 w-1 bg-blue-100/50 rounded-full' />
           <span>Plataforma de Elite</span>
         </div>
       </div>
 
       {/* Right Side: Login Form */}
-      <div className='flex items-center justify-center p-8 bg-slate-50/50 relative'>
+      <div className='flex items-center justify-center p-8 bg-[#fafbfc] relative'>
         {/* Mobile Header (Hidden on Laptop) */}
         <div className='absolute top-8 left-8 lg:hidden'>
           <Link href='/' className='flex items-center gap-2'>
-            <div className='p-2 rounded-xl bg-blue-600'>
+            <div className='p-2 rounded-lg bg-blue-600'>
               <Sparkles className='h-5 w-5 text-white' />
             </div>
             <span className='text-xl font-bold text-slate-900'>
@@ -60,21 +93,19 @@ export default function LoginPage() {
 
         <div className='w-full max-w-md space-y-8'>
           <div className='text-center lg:text-left'>
-            <h1 className='text-3xl font-extrabold text-slate-900 tracking-tight mb-2'>
+            <h1 className='text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2'>
               Bem-vindo de volta
             </h1>
-            <p className='text-slate-500'>
+            <p className='text-slate-600'>
               Escolha uma forma de acessar sua conta e continuar seu progresso.
             </p>
           </div>
 
-          <div className='bg-white p-2 rounded-[2rem] shadow-2xl shadow-blue-100 border border-blue-50/50'>
+          <div className='bg-white p-2 rounded-2xl shadow-sm border border-slate-200'>
             <Card className='border-0 shadow-none bg-transparent'>
               <CardContent className='pt-8 pb-10 px-8 space-y-6'>
                 <Button
-                  onClick={() =>
-                    signIn('google', { callbackUrl: '/auth/redirect' })
-                  }
+                  onClick={handleGoogleLogin}
                   className='w-full bg-white hover:bg-slate-50 text-slate-900 font-bold py-8 rounded-2xl border border-slate-200 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm'
                 >
                   <svg className='w-6 h-6' viewBox='0 0 24 24'>
@@ -100,9 +131,9 @@ export default function LoginPage() {
 
                 <div className='relative'>
                   <div className='absolute inset-0 flex items-center'>
-                    <span className='w-full border-t border-slate-100' />
+                    <span className='w-full border-t border-slate-200' />
                   </div>
-                  <div className='relative flex justify-center text-[10px] uppercase tracking-widest text-slate-400 font-bold'>
+                  <div className='relative flex justify-center text-[10px] uppercase tracking-widest text-slate-400 font-medium'>
                     <span className='bg-white px-4'>Acesso Único</span>
                   </div>
                 </div>
@@ -110,7 +141,7 @@ export default function LoginPage() {
                 <div className='flex flex-col gap-4 items-center pt-2'>
                   <Link
                     href='/'
-                    className='inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors text-sm font-semibold'
+                    className='inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors text-sm font-medium'
                   >
                     <ArrowLeft className='h-4 w-4' />
                     Voltar ao portal inicial
@@ -121,18 +152,18 @@ export default function LoginPage() {
           </div>
 
           <div className='text-center space-y-4 pt-4'>
-            <p className='text-[10px] text-slate-400 leading-relaxed mx-auto uppercase tracking-wide px-8'>
+            <p className='text-[10px] text-slate-500 leading-relaxed mx-auto uppercase tracking-wide px-8'>
               Ao continuar, você concorda com nossos{' '}
               <Link
                 href='/termos'
-                className='text-blue-600 hover:underline font-bold'
+                className='text-blue-600 hover:underline font-medium'
               >
                 Termos de Serviço
               </Link>{' '}
               e{' '}
               <Link
                 href='/privacidade'
-                className='text-blue-600 hover:underline font-bold'
+                className='text-blue-600 hover:underline font-medium'
               >
                 Privacidade
               </Link>

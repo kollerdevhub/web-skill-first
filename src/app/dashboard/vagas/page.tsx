@@ -1,6 +1,5 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -21,85 +20,36 @@ import {
   Clock,
   Send,
   Bookmark,
+  AlertCircle,
 } from 'lucide-react';
+import { useVagas } from '@/hooks';
+import type { Modalidade } from '@/lib/api';
 
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: 'remote' | 'hybrid' | 'onsite';
-  salary: string;
-  description: string;
-  postedAt: string;
-}
-
-const fetchJobs = async (): Promise<Job[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  return [
-    {
-      id: '1',
-      title: 'Desenvolvedor Full Stack',
-      company: 'Tech Corp',
-      location: 'São Paulo, SP',
-      type: 'remote',
-      salary: 'R$ 8.000 - R$ 12.000',
-      description:
-        'Procuramos um desenvolvedor full stack para trabalhar com React e Node.js.',
-      postedAt: '2 dias atrás',
-    },
-    {
-      id: '2',
-      title: 'Frontend Developer React',
-      company: 'StartupXYZ',
-      location: 'Rio de Janeiro, RJ',
-      type: 'hybrid',
-      salary: 'R$ 7.000 - R$ 10.000',
-      description:
-        'Vaga para desenvolvedor frontend com experiência em React e TypeScript.',
-      postedAt: '3 dias atrás',
-    },
-    {
-      id: '3',
-      title: 'Backend Developer Node.js',
-      company: 'FinTech Solutions',
-      location: 'Belo Horizonte, MG',
-      type: 'onsite',
-      salary: 'R$ 9.000 - R$ 14.000',
-      description: 'Desenvolvedor backend para construir APIs escaláveis.',
-      postedAt: '1 semana atrás',
-    },
-    {
-      id: '4',
-      title: 'DevOps Engineer',
-      company: 'CloudTech',
-      location: 'Curitiba, PR',
-      type: 'remote',
-      salary: 'R$ 10.000 - R$ 15.000',
-      description:
-        'Engenheiro DevOps com experiência em AWS, Docker e Kubernetes.',
-      postedAt: '4 dias atrás',
-    },
-  ];
-};
-
-const typeConfig = {
-  remote: {
+const modalidadeConfig: Record<
+  Modalidade,
+  {
+    label: string;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+    icon: typeof Home;
+  }
+> = {
+  remoto: {
     label: 'Remoto',
     color: 'text-emerald-600',
     bgColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
     icon: Home,
   },
-  hybrid: {
+  hibrido: {
     label: 'Híbrido',
     color: 'text-amber-600',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
     icon: RefreshCcw,
   },
-  onsite: {
+  presencial: {
     label: 'Presencial',
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
@@ -107,6 +57,35 @@ const typeConfig = {
     icon: Building,
   },
 };
+
+function formatSalary(min?: number, max?: number): string | null {
+  if (!min && !max) return null;
+  const formatter = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0,
+  });
+  if (min && max) {
+    return `${formatter.format(min)} - ${formatter.format(max)}`;
+  }
+  if (min) return `A partir de ${formatter.format(min)}`;
+  if (max) return `Até ${formatter.format(max)}`;
+  return null;
+}
+
+function formatDate(dateString?: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Hoje';
+  if (diffDays === 1) return 'Ontem';
+  if (diffDays < 7) return `${diffDays} dias atrás`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} semana(s) atrás`;
+  return `${Math.floor(diffDays / 30)} mês(es) atrás`;
+}
 
 function JobCardSkeleton() {
   return (
@@ -128,14 +107,7 @@ function JobCardSkeleton() {
 }
 
 export default function VagasPage() {
-  const {
-    data: jobs,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ['jobs'],
-    queryFn: fetchJobs,
-  });
+  const { data: vagas, isLoading, error } = useVagas({ status: 'aberta' });
 
   return (
     <div className='space-y-6'>
@@ -181,7 +153,8 @@ export default function VagasPage() {
 
       {error && (
         <Card className='bg-red-50 border-red-200'>
-          <CardContent className='p-4'>
+          <CardContent className='p-4 flex items-center gap-2'>
+            <AlertCircle className='h-5 w-5 text-red-600' />
             <p className='text-red-600'>
               Erro ao carregar vagas. Tente novamente.
             </p>
@@ -196,48 +169,57 @@ export default function VagasPage() {
             <JobCardSkeleton />
             <JobCardSkeleton />
           </>
-        ) : (
-          jobs?.map((job) => {
-            const type = typeConfig[job.type];
-            const TypeIcon = type.icon;
+        ) : vagas?.data && vagas.data.length > 0 ? (
+          vagas.data.map((vaga) => {
+            const modalidade = modalidadeConfig[vaga.modalidade];
+            const ModalidadeIcon = modalidade.icon;
+            const salary = formatSalary(vaga.salarioMin, vaga.salarioMax);
+            const postedAt = formatDate(vaga.dataPublicacao || vaga.createdAt);
+
             return (
               <Card
-                key={job.id}
+                key={vaga.id}
                 className='group bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
               >
                 <CardHeader>
                   <div className='flex justify-between items-start'>
                     <div>
                       <CardTitle className='text-slate-900 text-xl group-hover:text-blue-600 transition-colors'>
-                        {job.title}
+                        {vaga.titulo}
                       </CardTitle>
                       <CardDescription className='text-slate-500 mt-1 flex items-center gap-2'>
-                        {job.company}
+                        {vaga.empresa?.nome || 'Empresa'}
                         <span className='text-slate-300'>•</span>
                         <MapPin className='h-3 w-3' />
-                        {job.location}
+                        {vaga.localizacao}
                       </CardDescription>
                     </div>
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 border ${type.bgColor} ${type.color} ${type.borderColor}`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 border ${modalidade.bgColor} ${modalidade.color} ${modalidade.borderColor}`}
                     >
-                      <TypeIcon className='h-3 w-3' />
-                      {type.label}
+                      <ModalidadeIcon className='h-3 w-3' />
+                      {modalidade.label}
                     </span>
                   </div>
                 </CardHeader>
                 <CardContent className='space-y-4'>
-                  <p className='text-slate-600'>{job.description}</p>
+                  <p className='text-slate-600 line-clamp-2'>
+                    {vaga.descricao}
+                  </p>
                   <div className='flex items-center justify-between'>
                     <div className='space-y-1'>
-                      <p className='text-blue-600 font-semibold flex items-center gap-1'>
-                        <DollarSign className='h-4 w-4' />
-                        {job.salary}
-                      </p>
-                      <p className='text-slate-400 text-sm flex items-center gap-1'>
-                        <Clock className='h-3 w-3' />
-                        {job.postedAt}
-                      </p>
+                      {salary && (
+                        <p className='text-blue-600 font-semibold flex items-center gap-1'>
+                          <DollarSign className='h-4 w-4' />
+                          {salary}
+                        </p>
+                      )}
+                      {postedAt && (
+                        <p className='text-slate-400 text-sm flex items-center gap-1'>
+                          <Clock className='h-3 w-3' />
+                          {postedAt}
+                        </p>
+                      )}
                     </div>
                     <div className='flex gap-2'>
                       <Button
@@ -247,7 +229,7 @@ export default function VagasPage() {
                         <Bookmark className='h-4 w-4 mr-2' />
                         Salvar
                       </Button>
-                      <Link href={`/dashboard/vagas/${job.id}`}>
+                      <Link href={`/dashboard/vagas/${vaga.id}`}>
                         <Button className='bg-blue-600 hover:bg-blue-700'>
                           <Send className='h-4 w-4 mr-2' />
                           Candidatar-se
@@ -259,6 +241,15 @@ export default function VagasPage() {
               </Card>
             );
           })
+        ) : (
+          <Card className='bg-slate-50 border-slate-200'>
+            <CardContent className='p-8 text-center'>
+              <Briefcase className='h-12 w-12 text-slate-300 mx-auto mb-4' />
+              <p className='text-slate-500'>
+                Nenhuma vaga disponível no momento.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
