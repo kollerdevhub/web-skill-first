@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inscricoesService } from '@/lib/api';
 import type { UpdateProgressoDTO, SubmitQuizDTO } from '@/lib/api';
 import { cursosKeys } from './useCursos';
+import { useFirebaseAuth } from './useFirebaseAuth';
 
 // Query keys
 export const inscricoesKeys = {
@@ -16,10 +17,12 @@ export const inscricoesKeys = {
  * Hook to get my enrollments
  */
 export function useMinhasInscricoes() {
+  const { isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: inscricoesKeys.minhas(),
     queryFn: () => inscricoesService.getMinhas(),
     staleTime: 2 * 60 * 1000,
+    enabled: isAuthenticated,
   });
 }
 
@@ -59,7 +62,9 @@ export function useUpdateProgress() {
     mutationFn: ({ id, data }: { id: string; data: UpdateProgressoDTO }) =>
       inscricoesService.updateProgress(id, data),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: inscricoesKeys.detail(data.id) });
+      queryClient.invalidateQueries({
+        queryKey: inscricoesKeys.detail(data.id),
+      });
       queryClient.invalidateQueries({ queryKey: inscricoesKeys.minhas() });
     },
   });

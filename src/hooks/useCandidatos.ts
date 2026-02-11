@@ -7,6 +7,7 @@ import type {
   CreateCandidatoDTO,
   UpdateCandidatoDTO,
 } from '@/lib/api';
+import { useFirebaseAuth } from './useFirebaseAuth';
 
 // Query keys
 export const candidatosKeys = {
@@ -19,11 +20,13 @@ export const candidatosKeys = {
  * Hook to get my candidate profile
  */
 export function useMyProfile() {
+  const { isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: candidatosKeys.myProfile(),
     queryFn: () => candidatosService.getMyProfile(),
     staleTime: 5 * 60 * 1000,
     retry: false,
+    enabled: isAuthenticated,
   });
 }
 

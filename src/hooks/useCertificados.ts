@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { certificadosService } from '@/lib/api';
+import { useFirebaseAuth } from './useFirebaseAuth';
 
 // Query keys
 export const certificadosKeys = {
@@ -16,10 +17,12 @@ export const certificadosKeys = {
  * Hook to get my certificates
  */
 export function useMeusCertificados() {
+  const { isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: certificadosKeys.meus(),
     queryFn: () => certificadosService.getMeus(),
     staleTime: 5 * 60 * 1000,
+    enabled: isAuthenticated,
   });
 }
 

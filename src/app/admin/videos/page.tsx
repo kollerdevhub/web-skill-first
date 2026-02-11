@@ -13,23 +13,24 @@ export default function AdminVideosPage() {
           <ListVideo className='h-6 w-6 text-white' />
         </div>
         <div>
-          <h1 className='text-3xl font-bold text-slate-900'>Vídeos</h1>
-          <p className='text-slate-500 text-sm'>
+          <h1 className='text-3xl font-bold text-foreground'>Vídeos</h1>
+          <p className='text-muted-foreground text-sm'>
             Fluxo migrado para trilha de módulos por curso
           </p>
         </div>
       </div>
 
-      <Card className='bg-white border-slate-200 shadow-sm'>
+      <Card className='bg-card border-border shadow-sm'>
         <CardHeader>
-          <CardTitle className='text-slate-900 flex items-center gap-2'>
+          <CardTitle className='text-foreground flex items-center gap-2'>
             <Info className='h-5 w-5 text-blue-600' />
             Gestão de vídeo por curso
           </CardTitle>
         </CardHeader>
-        <CardContent className='space-y-4 text-slate-600'>
+        <CardContent className='space-y-4 text-muted-foreground'>
           <p>
-            A biblioteca global de vídeos foi descontinuada para evitar duplicidade.
+            A biblioteca global de vídeos foi descontinuada para evitar
+            duplicidade.
           </p>
           <p>
             Agora cada vídeo deve ser enviado dentro de um módulo em{' '}
@@ -46,7 +47,7 @@ export default function AdminVideosPage() {
             <Link href='/admin/cursos/new'>
               <Button
                 variant='outline'
-                className='border-slate-200 text-slate-600 hover:bg-slate-100'
+                className='border-border text-muted-foreground hover:bg-muted'
               >
                 Criar novo curso
               </Button>

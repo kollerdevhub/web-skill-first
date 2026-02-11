@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +20,7 @@ import {
   DollarSign,
   Clock,
   Send,
-  Bookmark,
+  BookmarkCheck,
   AlertCircle,
 } from 'lucide-react';
 import { useVagas } from '@/hooks';
@@ -108,6 +109,53 @@ function JobCardSkeleton() {
 
 export default function VagasPage() {
   const { data: vagas, isLoading, error } = useVagas({ status: 'aberta' });
+  const [filter, setFilter] = useState<'todos' | Modalidade>('todos');
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Load saved jobs from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('savedVagas');
+      if (saved) setSavedIds(new Set(JSON.parse(saved)));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Persist saved jobs
+  function toggleSave(vagaId: string) {
+    setSavingId(vagaId);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(vagaId)) {
+        next.delete(vagaId);
+      } else {
+        next.add(vagaId);
+      }
+      localStorage.setItem('savedVagas', JSON.stringify([...next]));
+      return next;
+    });
+    setTimeout(() => setSavingId(null), 300);
+  }
+
+  // Filter vagas by modalidade
+  const filteredVagas = useMemo(() => {
+    if (!vagas?.data) return [];
+    if (filter === 'todos') return vagas.data;
+    return vagas.data.filter((v) => v.modalidade === filter);
+  }, [vagas?.data, filter]);
+
+  const filterButtons: {
+    key: 'todos' | Modalidade;
+    label: string;
+    icon?: any;
+  }[] = [
+    { key: 'todos', label: 'Todos' },
+    { key: 'remoto', label: 'Remoto', icon: Home },
+    { key: 'hibrido', label: 'Híbrido', icon: RefreshCcw },
+    { key: 'presencial', label: 'Presencial', icon: Building },
+  ];
 
   return (
     <div className='space-y-6'>
@@ -127,28 +175,30 @@ export default function VagasPage() {
 
       {/* Filters */}
       <div className='flex gap-3 flex-wrap'>
-        <Button className='bg-blue-600 hover:bg-blue-700'>Todos</Button>
-        <Button
-          variant='outline'
-          className='border-slate-200 text-slate-600 hover:bg-slate-100'
-        >
-          <Home className='h-4 w-4 mr-2' />
-          Remoto
-        </Button>
-        <Button
-          variant='outline'
-          className='border-slate-200 text-slate-600 hover:bg-slate-100'
-        >
-          <RefreshCcw className='h-4 w-4 mr-2' />
-          Híbrido
-        </Button>
-        <Button
-          variant='outline'
-          className='border-slate-200 text-slate-600 hover:bg-slate-100'
-        >
-          <Building className='h-4 w-4 mr-2' />
-          Presencial
-        </Button>
+        {filterButtons.map((fb) => {
+          const isActive = filter === fb.key;
+          const Icon = fb.icon;
+          return (
+            <Button
+              key={fb.key}
+              variant={isActive ? 'default' : 'outline'}
+              className={
+                isActive
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+              }
+              onClick={() => setFilter(fb.key)}
+            >
+              {Icon && <Icon className='h-4 w-4 mr-2' />}
+              {fb.label}
+              {filter === fb.key && vagas?.data && fb.key !== 'todos' && (
+                <span className='ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-xs'>
+                  {vagas.data.filter((v) => v.modalidade === fb.key).length}
+                </span>
+              )}
+            </Button>
+          );
+        })}
       </div>
 
       {error && (
@@ -169,12 +219,13 @@ export default function VagasPage() {
             <JobCardSkeleton />
             <JobCardSkeleton />
           </>
-        ) : vagas?.data && vagas.data.length > 0 ? (
-          vagas.data.map((vaga) => {
+        ) : filteredVagas.length > 0 ? (
+          filteredVagas.map((vaga) => {
             const modalidade = modalidadeConfig[vaga.modalidade];
             const ModalidadeIcon = modalidade.icon;
             const salary = formatSalary(vaga.salarioMin, vaga.salarioMax);
             const postedAt = formatDate(vaga.dataPublicacao || vaga.createdAt);
+            const isSaved = savedIds.has(vaga.id);
 
             return (
               <Card
@@ -224,10 +275,18 @@ export default function VagasPage() {
                     <div className='flex gap-2'>
                       <Button
                         variant='outline'
-                        className='border-slate-200 text-slate-600 hover:bg-slate-100'
+                        className={`border-slate-200 transition-all ${
+                          isSaved
+                            ? 'text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                        disabled={savingId === vaga.id}
+                        onClick={() => toggleSave(vaga.id)}
                       >
-                        <Bookmark className='h-4 w-4 mr-2' />
-                        Salvar
+                        <BookmarkCheck
+                          className={`h-4 w-4 mr-2 ${isSaved ? 'fill-amber-500' : ''}`}
+                        />
+                        {isSaved ? 'Salvo' : 'Salvar'}
                       </Button>
                       <Link href={`/dashboard/vagas/${vaga.id}`}>
                         <Button className='bg-blue-600 hover:bg-blue-700'>
@@ -246,7 +305,9 @@ export default function VagasPage() {
             <CardContent className='p-8 text-center'>
               <Briefcase className='h-12 w-12 text-slate-300 mx-auto mb-4' />
               <p className='text-slate-500'>
-                Nenhuma vaga disponível no momento.
+                {filter === 'todos'
+                  ? 'Nenhuma vaga disponível no momento.'
+                  : `Nenhuma vaga ${filter === 'remoto' ? 'remota' : filter === 'hibrido' ? 'híbrida' : 'presencial'} disponível.`}
               </p>
             </CardContent>
           </Card>

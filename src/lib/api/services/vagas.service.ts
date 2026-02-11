@@ -22,6 +22,7 @@ import {
   VagaCandidaturasCount,
   Candidatura,
   PaginatedResponse,
+  Empresa,
 } from '../types';
 
 /**
@@ -32,8 +33,12 @@ export const vagasService = {
    * Create a new job (recruiter)
    */
   async create(data: CreateVagaDTO): Promise<Vaga> {
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined),
+    );
+
     const docRef = await addDoc(collection(db, COLLECTIONS.VAGAS), {
-      ...data,
+      ...cleanData,
       status: 'rascunho',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -71,12 +76,70 @@ export const vagasService = {
       q = query(q, where('modalidade', '==', params.modalidade));
     }
 
-    q = query(q, orderBy('createdAt', 'desc'));
+    // q = query(q, orderBy('createdAt', 'desc')); // Removed to avoid index issue
 
     const snapshot = await getDocs(q);
     let allData = snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as Vaga,
     );
+
+    // Fetch company details for all jobs
+    const empresaIds = [
+      ...new Set(allData.map((v) => v.empresaId).filter(Boolean)),
+    ];
+
+    const empresaMap: Record<string, { nome: string; logoUrl?: string }> = {};
+
+    if (empresaIds.length > 0) {
+      // Optimization: Create a map of promises
+      const empresaPromises = empresaIds.map(async (id) => {
+        try {
+          if (!id) return null;
+          const empDoc = await getDoc(doc(db, COLLECTIONS.EMPRESAS, id));
+          if (empDoc.exists()) {
+            return { id, data: empDoc.data() as Empresa };
+          }
+        } catch (e) {
+          console.error(`Error loading company ${id}`, e);
+        }
+        return null;
+      });
+
+      const empresas = await Promise.all(empresaPromises);
+
+      empresas.forEach((emp) => {
+        if (emp && emp.data) {
+          empresaMap[emp.id] = {
+            nome: emp.data.nome,
+            logoUrl: emp.data.logoUrl,
+          };
+        }
+      });
+    }
+
+    // Populate jobs with company data
+    allData = allData.map((v) => {
+      if (v.empresaId && empresaMap[v.empresaId]) {
+        return {
+          ...v,
+          empresa: { id: v.empresaId!, ...empresaMap[v.empresaId] },
+        };
+      }
+      if (v.empresaNome) {
+        return {
+          ...v,
+          empresa: { id: 'manual', nome: v.empresaNome },
+        };
+      }
+      return v;
+    });
+
+    // Sort in memory
+    allData.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
 
     if (params.keyword) {
       const keyword = params.keyword.toLowerCase();
@@ -111,19 +174,54 @@ export const vagasService = {
   async getById(id: string): Promise<Vaga> {
     const docRef = doc(db, COLLECTIONS.VAGAS, id);
     const snapshot = await getDoc(docRef);
+
     if (!snapshot.exists()) {
       throw new Error('Vaga not found');
     }
-    return { id: snapshot.id, ...snapshot.data() } as Vaga;
+
+    const vagaData = snapshot.data();
+    let empresaData = undefined;
+
+    if (vagaData.empresaId) {
+      try {
+        const empresaDocRef = doc(db, COLLECTIONS.EMPRESAS, vagaData.empresaId);
+        const empresaSnapshot = await getDoc(empresaDocRef);
+        if (empresaSnapshot.exists()) {
+          const emp = empresaSnapshot.data() as Empresa;
+          empresaData = {
+            id: empresaSnapshot.id,
+            nome: emp.nome,
+            logoUrl: emp.logoUrl,
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching company details:', error);
+      }
+    } else if (vagaData.empresaNome) {
+      empresaData = {
+        id: 'manual',
+        nome: vagaData.empresaNome,
+      };
+    }
+
+    return {
+      id: snapshot.id,
+      ...vagaData,
+      empresa: empresaData,
+    } as Vaga;
   },
 
   /**
    * Update job (recruiter)
    */
   async update(id: string, data: UpdateVagaDTO): Promise<Vaga> {
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined),
+    );
+
     const docRef = doc(db, COLLECTIONS.VAGAS, id);
     await updateDoc(docRef, {
-      ...data,
+      ...cleanData,
       updatedAt: new Date().toISOString(),
     });
 

@@ -68,14 +68,53 @@ export const candidaturasService = {
     const q = query(
       collection(db, COLLECTIONS.CANDIDATURAS),
       where('candidatoId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
     );
 
     const snapshot = await getDocs(q);
-    // TODO: Ideally populate Vaga data here if needed, or do it in the UI component via separate fetch
-    return snapshot.docs.map(
+    const docs = snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as Candidatura,
     );
+
+    // Sort in memory
+    const sortedDocs = docs.sort((a, b) => {
+      const dateA = new Date(a.createdAt || '').getTime();
+      const dateB = new Date(b.createdAt || '').getTime();
+      return dateB - dateA;
+    });
+
+    // Fetch full vacancy details for each application to ensure we have location, company logo, etc.
+    const enrichedDocs = await Promise.all(
+      sortedDocs.map(async (app) => {
+        try {
+          const vagaDoc = await getDoc(doc(db, COLLECTIONS.VAGAS, app.vagaId));
+          if (vagaDoc.exists()) {
+            const vagaData = vagaDoc.data();
+            return {
+              ...app,
+              vaga: {
+                id: vagaDoc.id,
+                titulo: vagaData.titulo,
+                empresa: {
+                  id: vagaData.empresaId,
+                  nome: vagaData.empresaNome || vagaData.empresa?.nome,
+                  logoUrl: vagaData.empresa?.logoUrl,
+                },
+                localizacao: vagaData.localizacao,
+              },
+            };
+          }
+          return app;
+        } catch (error) {
+          console.error(
+            `Error fetching vacancy details for app ${app.id}:`,
+            error,
+          );
+          return app;
+        }
+      }),
+    );
+
+    return enrichedDocs as Candidatura[];
   },
 
   /**
@@ -85,13 +124,18 @@ export const candidaturasService = {
     const q = query(
       collection(db, COLLECTIONS.CANDIDATURAS),
       where('vagaId', '==', vagaId),
-      orderBy('createdAt', 'desc'), // Might require composite index
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(
+    const docs = snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as Candidatura,
     );
+
+    return docs.sort((a, b) => {
+      const dateA = new Date(a.createdAt || '').getTime();
+      const dateB = new Date(b.createdAt || '').getTime();
+      return dateB - dateA;
+    });
   },
 
   /**
@@ -103,14 +147,18 @@ export const candidaturasService = {
     const q = query(
       collection(db, COLLECTIONS.CANDIDATURAS),
       where('vagaId', '==', vagaId),
-      orderBy('pontuacaoFinal', 'desc'), // Requires composite index
     );
 
     // Fallback if index not ready: client side sort
     try {
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(
+      const docs = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() }) as Candidatura,
+      );
+
+      // Sort by score
+      return docs.sort(
+        (a, b) => (b.pontuacaoFinal || 0) - (a.pontuacaoFinal || 0),
       );
     } catch {
       return this.getByVaga(vagaId);

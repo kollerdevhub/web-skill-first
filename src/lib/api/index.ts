@@ -12,4 +12,6 @@ export { cursosService } from './services/cursos.service';
 export { modulosService } from './services/modulos.service';
 export { inscricoesService } from './services/inscricoes.service';
 export { certificadosService } from './services/certificados.service';
+export { resumesService } from './services/resumes.service';
+export { matchesService } from './services/matches.service';
 export { homeService } from './services/home.service';

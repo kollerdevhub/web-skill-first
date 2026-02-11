@@ -10,4 +10,6 @@ export const COLLECTIONS = {
   CERTIFICADOS: 'certificados',
   TESTES: 'testes',
   RESOURCES: 'resources',
+  RESUMES: 'resumes',
+  MATCHES: 'matches',
 } as const;

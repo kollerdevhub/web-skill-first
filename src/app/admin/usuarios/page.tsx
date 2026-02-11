@@ -50,22 +50,22 @@ const roleConfig: Record<
 
 function UserCardSkeleton() {
   return (
-    <Card className='bg-white border-slate-200 shadow-sm'>
+    <Card className='bg-card border-border shadow-sm'>
       <CardHeader className='pb-3'>
         <div className='flex items-start gap-4'>
-          <Skeleton className='h-12 w-12 rounded-full bg-slate-100' />
+          <Skeleton className='h-12 w-12 rounded-full bg-muted' />
           <div className='flex-1 space-y-2'>
-            <Skeleton className='h-5 w-32 bg-slate-100' />
-            <Skeleton className='h-4 w-48 bg-slate-100' />
+            <Skeleton className='h-5 w-32 bg-muted' />
+            <Skeleton className='h-4 w-48 bg-muted' />
           </div>
         </div>
       </CardHeader>
       <CardContent className='space-y-4'>
-        <Skeleton className='h-6 w-20 bg-slate-100' />
+        <Skeleton className='h-6 w-20 bg-muted' />
         <div className='grid grid-cols-3 gap-2'>
-          <Skeleton className='h-16 bg-slate-100 rounded-lg' />
-          <Skeleton className='h-16 bg-slate-100 rounded-lg' />
-          <Skeleton className='h-16 bg-slate-100 rounded-lg' />
+          <Skeleton className='h-16 bg-muted rounded-lg' />
+          <Skeleton className='h-16 bg-muted rounded-lg' />
+          <Skeleton className='h-16 bg-muted rounded-lg' />
         </div>
       </CardContent>
     </Card>
@@ -74,14 +74,14 @@ function UserCardSkeleton() {
 
 function StatCardSkeleton() {
   return (
-    <Card className='bg-white border-slate-200 shadow-sm'>
+    <Card className='bg-card border-border shadow-sm'>
       <CardContent className='p-4'>
         <div className='flex items-center justify-between'>
           <div className='space-y-2'>
-            <Skeleton className='h-8 w-12 bg-slate-100' />
-            <Skeleton className='h-4 w-16 bg-slate-100' />
+            <Skeleton className='h-8 w-12 bg-muted' />
+            <Skeleton className='h-4 w-16 bg-muted' />
           </div>
-          <Skeleton className='h-11 w-11 rounded-xl bg-slate-100' />
+          <Skeleton className='h-11 w-11 rounded-xl bg-muted' />
         </div>
       </CardContent>
     </Card>
@@ -124,16 +124,16 @@ export default function AdminUsuariosPage() {
           <Users className='h-6 w-6 text-white' />
         </div>
         <div>
-          <h1 className='text-3xl font-bold text-slate-900'>Usuários</h1>
-          <p className='text-slate-500 text-sm'>Gerencie os usuários</p>
+          <h1 className='text-3xl font-bold text-foreground'>Usuários</h1>
+          <p className='text-muted-foreground text-sm'>Gerencie os usuários</p>
         </div>
       </div>
 
       {error && (
-        <Card className='bg-red-50 border-red-200'>
+        <Card className='bg-destructive/10 border-destructive/20'>
           <CardContent className='p-4 flex items-center gap-2'>
-            <AlertCircle className='h-5 w-5 text-red-600' />
-            <p className='text-red-600'>{error}</p>
+            <AlertCircle className='h-5 w-5 text-destructive' />
+            <p className='text-destructive'>{error}</p>
           </CardContent>
         </Card>
       )}
@@ -148,61 +148,63 @@ export default function AdminUsuariosPage() {
           </>
         ) : (
           <>
-            <Card className='bg-white border-slate-200 shadow-sm'>
+            <Card className='bg-card border-border shadow-sm'>
               <CardContent className='p-4'>
                 <div className='flex items-center justify-between'>
                   <div>
-                    <p className='text-2xl font-bold text-slate-900'>
+                    <p className='text-2xl font-bold text-foreground'>
                       {stats.total}
                     </p>
-                    <p className='text-sm text-slate-500'>Total</p>
+                    <p className='text-sm text-muted-foreground'>Total</p>
                   </div>
-                  <div className='p-3 rounded-xl bg-blue-50'>
+                  <div className='p-3 rounded-xl bg-blue-500/10'>
                     <Users className='h-5 w-5 text-blue-500' />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className='bg-white border-slate-200 shadow-sm'>
+            <Card className='bg-card border-border shadow-sm'>
               <CardContent className='p-4'>
                 <div className='flex items-center justify-between'>
                   <div>
-                    <p className='text-2xl font-bold text-slate-900'>
+                    <p className='text-2xl font-bold text-foreground'>
                       {stats.admins}
                     </p>
-                    <p className='text-sm text-slate-500'>Admins</p>
+                    <p className='text-sm text-muted-foreground'>Admins</p>
                   </div>
-                  <div className='p-3 rounded-xl bg-rose-50'>
+                  <div className='p-3 rounded-xl bg-rose-500/10'>
                     <ShieldCheck className='h-5 w-5 text-rose-500' />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className='bg-white border-slate-200 shadow-sm'>
+            <Card className='bg-card border-border shadow-sm'>
               <CardContent className='p-4'>
                 <div className='flex items-center justify-between'>
                   <div>
-                    <p className='text-2xl font-bold text-slate-900'>
+                    <p className='text-2xl font-bold text-foreground'>
                       {stats.totalEnrollments}
                     </p>
-                    <p className='text-sm text-slate-500'>Matrículas</p>
+                    <p className='text-sm text-muted-foreground'>Matrículas</p>
                   </div>
-                  <div className='p-3 rounded-xl bg-emerald-50'>
+                  <div className='p-3 rounded-xl bg-emerald-500/10'>
                     <GraduationCap className='h-5 w-5 text-emerald-500' />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className='bg-white border-slate-200 shadow-sm'>
+            <Card className='bg-card border-border shadow-sm'>
               <CardContent className='p-4'>
                 <div className='flex items-center justify-between'>
                   <div>
-                    <p className='text-2xl font-bold text-slate-900'>
+                    <p className='text-2xl font-bold text-foreground'>
                       {stats.totalCertificates}
                     </p>
-                    <p className='text-sm text-slate-500'>Certificados</p>
+                    <p className='text-sm text-muted-foreground'>
+                      Certificados
+                    </p>
                   </div>
-                  <div className='p-3 rounded-xl bg-amber-50'>
+                  <div className='p-3 rounded-xl bg-amber-500/10'>
                     <Award className='h-5 w-5 text-amber-500' />
                   </div>
                 </div>
@@ -220,12 +222,12 @@ export default function AdminUsuariosPage() {
             <UserCardSkeleton />
           </>
         ) : users.length === 0 ? (
-          <Card className='col-span-full bg-white border-slate-200'>
+          <Card className='col-span-full bg-card border-border'>
             <CardContent className='p-8 text-center'>
-              <div className='inline-flex p-4 rounded-full bg-slate-100 mb-4'>
-                <Users className='h-10 w-10 text-slate-400' />
+              <div className='inline-flex p-4 rounded-full bg-muted mb-4'>
+                <Users className='h-10 w-10 text-muted-foreground' />
               </div>
-              <p className='text-slate-600'>Nenhum usuário encontrado</p>
+              <p className='text-muted-foreground'>Nenhum usuário encontrado</p>
             </CardContent>
           </Card>
         ) : (
@@ -234,21 +236,21 @@ export default function AdminUsuariosPage() {
             return (
               <Card
                 key={user.id}
-                className='group bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all shadow-sm'
+                className='group bg-card border-border hover:border-primary/50 hover:shadow-lg transition-all shadow-sm'
               >
                 <CardHeader className='pb-3'>
                   <div className='flex items-start gap-4'>
-                    <Avatar className='h-12 w-12 ring-2 ring-slate-100 group-hover:ring-blue-100 transition-all'>
+                    <Avatar className='h-12 w-12 ring-2 ring-muted group-hover:ring-primary/20 transition-all'>
                       <AvatarImage src={user.image || undefined} />
-                      <AvatarFallback className='bg-gradient-to-br from-blue-500 to-blue-600 text-white font-medium'>
+                      <AvatarFallback className='bg-primary text-primary-foreground font-medium'>
                         {user.name?.charAt(0).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <div className='flex-1 min-w-0'>
-                      <CardTitle className='text-slate-900 text-base truncate group-hover:text-blue-600 transition-colors'>
+                      <CardTitle className='text-foreground text-base truncate group-hover:text-primary transition-colors'>
                         {user.name || 'Sem nome'}
                       </CardTitle>
-                      <p className='text-sm text-slate-500 truncate flex items-center gap-1 mt-1'>
+                      <p className='text-sm text-muted-foreground truncate flex items-center gap-1 mt-1'>
                         <Mail className='h-3 w-3' />
                         {user.email}
                       </p>
@@ -265,35 +267,35 @@ export default function AdminUsuariosPage() {
                     <UserRoleSelect userId={user.id} currentRole={user.role} />
                   </div>
                   <div className='grid grid-cols-3 gap-2'>
-                    <div className='p-2 bg-slate-50 rounded-lg text-center'>
-                      <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
+                    <div className='p-2 bg-muted/50 rounded-lg text-center'>
+                      <div className='flex items-center justify-center text-muted-foreground text-xs mb-1'>
                         <GraduationCap className='h-3 w-3' />
                       </div>
-                      <p className='text-slate-900 font-medium'>
+                      <p className='text-foreground font-medium'>
                         {user.enrollments || 0}
                       </p>
-                      <p className='text-slate-500 text-xs'>Cursos</p>
+                      <p className='text-muted-foreground text-xs'>Cursos</p>
                     </div>
-                    <div className='p-2 bg-slate-50 rounded-lg text-center'>
-                      <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
+                    <div className='p-2 bg-muted/50 rounded-lg text-center'>
+                      <div className='flex items-center justify-center text-muted-foreground text-xs mb-1'>
                         <Briefcase className='h-3 w-3' />
                       </div>
-                      <p className='text-slate-900 font-medium'>
+                      <p className='text-foreground font-medium'>
                         {user.applications || 0}
                       </p>
-                      <p className='text-slate-500 text-xs'>Vagas</p>
+                      <p className='text-muted-foreground text-xs'>Vagas</p>
                     </div>
-                    <div className='p-2 bg-slate-50 rounded-lg text-center'>
-                      <div className='flex items-center justify-center text-slate-400 text-xs mb-1'>
+                    <div className='p-2 bg-muted/50 rounded-lg text-center'>
+                      <div className='flex items-center justify-center text-muted-foreground text-xs mb-1'>
                         <Award className='h-3 w-3' />
                       </div>
-                      <p className='text-slate-900 font-medium'>
+                      <p className='text-foreground font-medium'>
                         {user.certificates || 0}
                       </p>
-                      <p className='text-slate-500 text-xs'>Certs</p>
+                      <p className='text-muted-foreground text-xs'>Certs</p>
                     </div>
                   </div>
-                  <div className='flex items-center gap-1 text-xs text-slate-400'>
+                  <div className='flex items-center gap-1 text-xs text-muted-foreground'>
                     <Calendar className='h-3 w-3' />
                     Cadastrado em{' '}
                     {new Date(user.createdAt).toLocaleDateString('pt-BR')}

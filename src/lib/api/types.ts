@@ -68,6 +68,44 @@ export interface ExperienciaProfissional {
   descricao?: string;
 }
 
+export interface Formacao {
+  curso: string;
+  instituicao: string;
+  conclusao: string;
+}
+
+export interface CursoConcluido {
+  nome: string;
+  instituicao: string;
+  cargaHoraria: number;
+  dataConclusao: string;
+}
+
+export interface Resume {
+  id: string; // Same as userId
+  hardSkills: string[];
+  softSkills: string[];
+  experiencias: ExperienciaProfissional[];
+  formacao: Formacao[];
+  cursosConcluidos: CursoConcluido[];
+  keywords: string[];
+  updatedAt: string;
+}
+
+export interface MatchResult {
+  id?: string; // composite uid_jobId
+  uid: string;
+  jobId: string;
+  matchScore: number;
+  recomendacao: 'forte' | 'medio' | 'fraco';
+  motivosMatch: string[];
+  gaps: string[];
+  palavrasChaveIdentificadas: string[];
+  sugestoesMelhorarCurriculo: string[];
+  model?: string;
+  updatedAt: string;
+}
+
 export interface Candidato {
   id: string;
   userId: string;
@@ -79,6 +117,9 @@ export interface Candidato {
   experienciaProfissional: ExperienciaProfissional[];
   habilidades: string[];
   curriculoUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,6 +132,9 @@ export interface CreateCandidatoDTO {
   endereco: Endereco;
   experienciaProfissional?: ExperienciaProfissional[];
   habilidades?: string[];
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
 }
 
 export type UpdateCandidatoDTO = Partial<CreateCandidatoDTO>;
@@ -155,7 +199,8 @@ export interface EmpresaResumida {
 
 export interface Vaga {
   id: string;
-  empresaId: string;
+  empresaId?: string;
+  empresaNome?: string;
   empresa?: EmpresaResumida;
   titulo: string;
   descricao: string;
@@ -174,7 +219,8 @@ export interface Vaga {
 }
 
 export interface CreateVagaDTO {
-  empresaId: string;
+  empresaId?: string;
+  empresaNome?: string;
   titulo: string;
   descricao: string;
   requisitos: Requisito[];
@@ -227,7 +273,8 @@ export type CandidaturaStatus =
 export interface VagaResumida {
   id: string;
   titulo: string;
-  empresa: { nome: string };
+  empresa: { nome: string; logoUrl?: string };
+  localizacao?: string;
 }
 
 export interface Candidatura {
@@ -475,6 +522,8 @@ export interface CursoResumido {
   titulo: string;
   thumbnailUrl?: string;
   totalModulos?: number;
+  categoria?: string;
+  cargaHoraria?: number;
 }
 
 export interface ModuloProgresso {

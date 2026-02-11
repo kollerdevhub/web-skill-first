@@ -7,6 +7,7 @@ import type {
   ConvidarEntrevistaDTO,
 } from '@/lib/api';
 import { vagasKeys } from './useVagas';
+import { useFirebaseAuth } from './useFirebaseAuth';
 
 // Query keys
 export const candidaturasKeys = {
@@ -23,10 +24,12 @@ export const candidaturasKeys = {
  * Hook to get my applications (candidate)
  */
 export function useMinhasCandidaturas() {
+  const { isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: candidaturasKeys.minhas(),
     queryFn: () => candidaturasService.getMinhas(),
     staleTime: 2 * 60 * 1000,
+    enabled: isAuthenticated,
   });
 }
 

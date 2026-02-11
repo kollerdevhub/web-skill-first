@@ -19,79 +19,110 @@ export const homeService = {
    * Get aggregated landing page data (public)
    */
   async getData(): Promise<HomeData> {
-    // Parallel queries
-    const [
-      vagasSnapshot,
-      cursosSnapshot,
-      vagasCount,
-      cursosCount,
-      candidatosCount,
-    ] = await Promise.all([
-      // Vagas Destaque (recent open jobs)
-      getDocs(
-        query(
-          collection(db, COLLECTIONS.VAGAS),
-          where('status', '==', 'aberta'),
-          orderBy('createdAt', 'desc'),
-          limit(4),
+    // Run queries independently to prevent one failure (e.g., missing index) from breaking everything
+    try {
+      const [
+        vagasSnapshotResult,
+        cursosSnapshotResult,
+        vagasCountResult,
+        cursosCountResult,
+        candidatosCountResult,
+      ] = await Promise.allSettled([
+        // Vagas Destaque (requires index: status + createdAt)
+        getDocs(
+          query(
+            collection(db, COLLECTIONS.VAGAS),
+            where('status', '==', 'aberta'),
+            orderBy('createdAt', 'desc'),
+            limit(4),
+          ),
         ),
-      ),
 
-      // Cursos Populares (top enrolled)
-      getDocs(
-        query(
-          collection(db, COLLECTIONS.CURSOS),
-          orderBy('totalInscritos', 'desc'),
-          limit(4),
+        // Cursos Populares (requires index: totalInscritos)
+        getDocs(
+          query(
+            collection(db, COLLECTIONS.CURSOS),
+            orderBy('totalInscritos', 'desc'),
+            limit(4),
+          ),
         ),
-      ),
 
-      // Stats
-      getCountFromServer(collection(db, COLLECTIONS.VAGAS)),
-      getCountFromServer(collection(db, COLLECTIONS.CURSOS)),
-      getCountFromServer(collection(db, COLLECTIONS.CANDIDATOS)),
-    ]);
+        // Stats
+        getCountFromServer(collection(db, COLLECTIONS.VAGAS)),
+        getCountFromServer(collection(db, COLLECTIONS.CURSOS)),
+        getCountFromServer(collection(db, COLLECTIONS.CANDIDATOS)),
+      ]);
 
-    const vagasDestaque: VagaDestaque[] = await Promise.all(
-      vagasSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        // Fetch company name
-        // Ideally denormalized, but valid to fetch here
-        // For now using placeholder or if stored in doc
-        // Assuming empresa name is NOT on vaga doc typically, but types say 'empresa' object
-        // Let's assume we denormalized it or fetch it.
-        // Simplified: return as is if data exists, else empty
-        return {
-          id: doc.id,
-          titulo: data.titulo,
-          empresa: data.empresa || { nome: 'Empresa', logoUrl: '' },
-          localizacao: data.localizacao,
-          modalidade: data.modalidade,
-          tipoContrato: data.tipoContrato,
-        } as VagaDestaque;
-      }),
-    );
+      const vagasDestaque: VagaDestaque[] =
+        vagasSnapshotResult.status === 'fulfilled'
+          ? vagasSnapshotResult.value.docs.map((doc) => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                titulo: data.titulo,
+                empresa: data.empresa || { nome: 'Empresa', logoUrl: '' },
+                localizacao: data.localizacao,
+                modalidade: data.modalidade,
+                tipoContrato: data.tipoContrato,
+              } as VagaDestaque;
+            })
+          : [];
 
-    const cursosPopulares: CursoPopular[] = cursosSnapshot.docs.map((doc) => {
-      const data = doc.data();
+      if (vagasSnapshotResult.status === 'rejected') {
+        console.warn(
+          'Failed to fetch Featured Jobs (check indexes):',
+          vagasSnapshotResult.reason,
+        );
+      }
+
+      const cursosPopulares: CursoPopular[] =
+        cursosSnapshotResult.status === 'fulfilled'
+          ? cursosSnapshotResult.value.docs.map((doc) => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                titulo: data.titulo,
+                categoria: data.categoria,
+                nivel: data.nivel,
+                thumbnailUrl: data.thumbnailUrl,
+                totalInscritos: data.totalInscritos || 0,
+              } as CursoPopular;
+            })
+          : [];
+
+      if (cursosSnapshotResult.status === 'rejected') {
+        console.warn(
+          'Failed to fetch Popular Courses (check indexes):',
+          cursosSnapshotResult.reason,
+        );
+      }
+
       return {
-        id: doc.id,
-        titulo: data.titulo,
-        categoria: data.categoria,
-        nivel: data.nivel,
-        thumbnailUrl: data.thumbnailUrl,
-        totalInscritos: data.totalInscritos || 0,
-      } as CursoPopular;
-    });
-
-    return {
-      vagasDestaque,
-      cursosPopulares,
-      estatisticas: {
-        totalVagas: vagasCount.data().count,
-        totalCursos: cursosCount.data().count,
-        totalCandidatos: candidatosCount.data().count,
-      },
-    };
+        vagasDestaque,
+        cursosPopulares,
+        estatisticas: {
+          totalVagas:
+            vagasCountResult.status === 'fulfilled'
+              ? vagasCountResult.value.data().count
+              : 0,
+          totalCursos:
+            cursosCountResult.status === 'fulfilled'
+              ? cursosCountResult.value.data().count
+              : 0,
+          totalCandidatos:
+            candidatosCountResult.status === 'fulfilled'
+              ? candidatosCountResult.value.data().count
+              : 0,
+        },
+      };
+    } catch (error) {
+      console.error('Error fetching home data:', error);
+      // Return empty structure on catastrophic failure
+      return {
+        vagasDestaque: [],
+        cursosPopulares: [],
+        estatisticas: { totalVagas: 0, totalCursos: 0, totalCandidatos: 0 },
+      };
+    }
   },
 };

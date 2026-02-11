@@ -27,45 +27,58 @@ export const modulosService = {
    * List modules for a course (public)
    */
   async list(cursoId: string): Promise<Modulo[]> {
-    const q = query(
-      collection(db, COLLECTIONS.MODULOS),
-      where('cursoId', '==', cursoId),
-      orderBy('ordem', 'asc'),
-    );
+    try {
+      // Query without sorting to avoid needing a composite index (cursoId + ordem)
+      const q = query(
+        collection(db, COLLECTIONS.MODULOS),
+        where('cursoId', '==', cursoId),
+      );
 
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as Modulo,
-    );
+      const snapshot = await getDocs(q);
+      const modules = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() }) as Modulo,
+      );
+
+      // Sort in memory
+      return modules.sort((a, b) => a.ordem - b.ordem);
+    } catch (error) {
+      console.error('Erro ao listar módulos:', error);
+      throw error;
+    }
   },
 
   /**
    * Create a new module (admin/gestor)
    */
   async create(cursoId: string, data: CreateModuloDTO): Promise<Modulo> {
-    const batch = writeBatch(db);
+    try {
+      const batch = writeBatch(db);
 
-    const newModuleRef = doc(collection(db, COLLECTIONS.MODULOS));
-    // Strip undefined values — Firestore rejects them
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([, v]) => v !== undefined),
-    );
-    const moduleData = {
-      ...cleanData,
-      cursoId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      const newModuleRef = doc(collection(db, COLLECTIONS.MODULOS));
+      // Strip undefined values — Firestore rejects them
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([, v]) => v !== undefined),
+      );
+      const moduleData = {
+        ...cleanData,
+        cursoId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    batch.set(newModuleRef, moduleData);
+      batch.set(newModuleRef, moduleData);
 
-    // Update course totalModules
-    const courseRef = doc(db, COLLECTIONS.CURSOS, cursoId);
-    batch.update(courseRef, { totalModulos: increment(1) });
+      // Update course totalModules
+      const courseRef = doc(db, COLLECTIONS.CURSOS, cursoId);
+      batch.update(courseRef, { totalModulos: increment(1) });
 
-    await batch.commit();
+      await batch.commit();
 
-    return { id: newModuleRef.id, ...moduleData } as Modulo;
+      return { id: newModuleRef.id, ...moduleData } as Modulo;
+    } catch (error) {
+      console.error('Erro ao criar módulo:', error);
+      throw error;
+    }
   },
 
   /**

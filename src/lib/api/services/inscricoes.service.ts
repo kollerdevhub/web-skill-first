@@ -20,6 +20,8 @@ import {
   SubmitQuizDTO,
   SubmitQuizResponse,
 } from '../types';
+import { certificadosService } from './certificados.service';
+import { candidatosService } from './candidatos.service';
 
 /**
  * Inscricoes (Course Enrollments) API Service - Firestore Implementation
@@ -83,12 +85,41 @@ export const inscricoesService = {
     const q = query(
       collection(db, COLLECTIONS.INSCRICOES),
       where('candidatoId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(
+    const docs = snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as Inscricao,
+    );
+
+    // Fetch course details for each enrollment
+    const docsWithCourses = await Promise.all(
+      docs.map(async (inscricao) => {
+        try {
+          const courseDocRef = doc(db, COLLECTIONS.CURSOS, inscricao.cursoId);
+          const courseSnap = await getDoc(courseDocRef);
+          if (courseSnap.exists()) {
+            const courseData = courseSnap.data();
+            inscricao.curso = {
+              id: courseSnap.id,
+              titulo: courseData.titulo,
+              thumbnailUrl: courseData.thumbnailUrl,
+              totalModulos: courseData.totalModulos,
+              categoria: courseData.categoria,
+              cargaHoraria: courseData.cargaHoraria,
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching course for enrollment:', error);
+        }
+        return inscricao;
+      }),
+    );
+
+    // Sort in memory to avoid composite index requirement
+    return docsWithCourses.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   },
 
@@ -106,6 +137,7 @@ export const inscricoesService = {
 
   /**
    * Update progress (candidate)
+   * Automatically calculates progressoPercentual and marks as complete
    */
   async updateProgress(
     id: string,
@@ -127,25 +159,105 @@ export const inscricoesService = {
         ...modulosProgresso[index],
         concluido: data.concluido,
         tempoAssistido:
-          data.tempoAssistido || modulosProgresso[index].tempoAssistido,
+          data.tempoAssistido ?? modulosProgresso[index].tempoAssistido ?? 0,
       };
     } else {
       modulosProgresso.push({
         moduloId: data.moduloId,
         concluido: data.concluido,
-        tempoAssistido: data.tempoAssistido,
+        tempoAssistido: data.tempoAssistido ?? 0,
       });
     }
 
-    // Recalculate percentual (assuming we know total modules from course or pass it)
-    // For simplicity, we just save the array. UI/Calc logic handles the rest.
+    // Fetch total modules from the course to calculate percentual
+    const modulosQuery = query(
+      collection(db, COLLECTIONS.MODULOS),
+      where('cursoId', '==', current.cursoId),
+    );
+    const modulosSnapshot = await getDocs(modulosQuery);
+    const totalModulos = modulosSnapshot.size;
 
-    await updateDoc(docRef, {
+    // Calculate progress percentage
+    const completedCount = modulosProgresso.filter((m) => m.concluido).length;
+    const progressoPercentual =
+      totalModulos > 0 ? Math.round((completedCount / totalModulos) * 100) : 0;
+
+    // Check if all modules are completed
+    const isCompleted = totalModulos > 0 && completedCount >= totalModulos;
+
+    const updateData: Record<string, unknown> = {
       modulosProgresso,
+      progressoPercentual,
+      progress: progressoPercentual,
       updatedAt: new Date().toISOString(),
       lastAccessedModule: data.moduloId,
+      ultimoModuloAcessado: data.moduloId,
       ultimoAcesso: new Date().toISOString(),
-    });
+    };
+
+    // Auto-complete enrollment OR generate missing certificate
+    if (
+      isCompleted &&
+      (current.status !== 'concluido' || !current.certificadoEmitido)
+    ) {
+      if (current.status !== 'concluido') {
+        updateData.status = 'concluido';
+        updateData.dataConclusao = new Date().toISOString();
+      }
+
+      // Generate Certificate & Update Resume
+      try {
+        const courseRef = doc(db, COLLECTIONS.CURSOS, current.cursoId);
+        const courseSnap = await getDoc(courseRef);
+
+        let candidateName = 'Aluno';
+        try {
+          const candidateData = await candidatosService.getById(
+            current.candidatoId,
+          );
+          if (candidateData) candidateName = candidateData.nome;
+        } catch (e) {
+          console.warn('Could not fetch candidate profile for certificate', e);
+        }
+
+        if (courseSnap.exists()) {
+          const courseData = courseSnap.data();
+
+          // 1. Generate Certificate
+          await certificadosService.generateCertificate({
+            cursoId: current.cursoId,
+            cursoTitulo: courseData.titulo,
+            cursoCargaHoraria: courseData.cargaHoraria,
+            cursoCategoria: courseData.categoria,
+            cursoNivel: courseData.nivel,
+            candidatoId: current.candidatoId,
+            candidatoNome: candidateName,
+            notaFinal: current.notaAvaliacaoFinal, // If available
+          });
+          updateData.certificadoEmitido = true;
+
+          // 2. Update Resume with Completed Course
+          // Dynamic import to avoid circular dependency if resumesService imports inscricoesService (it doesn't, but good practice)
+          const { resumesService } = await import('./resumes.service');
+          await resumesService.addCompletedCourse(current.candidatoId, {
+            nome: courseData.titulo,
+            instituicao: 'SkillFirst', // Platform Name
+            cargaHoraria: courseData.cargaHoraria,
+            dataConclusao: new Date().toISOString(),
+          });
+
+          // Force update to ensure the flag is saved even if status was already concluded
+          if (current.status === 'concluido') {
+            await updateDoc(docRef, { certificadoEmitido: true });
+          }
+        }
+      } catch (error) {
+        console.error('Error generating certificate/resume:', error);
+        // Don't fail the progress update if certificate generation fails
+      }
+    }
+
+    await updateDoc(docRef, updateData);
 
     const updated = await getDoc(docRef);
     return { id: updated.id, ...updated.data() } as Inscricao;

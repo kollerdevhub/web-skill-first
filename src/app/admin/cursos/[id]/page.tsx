@@ -2,15 +2,21 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import {
-  CldUploadWidget,
-  CloudinaryUploadWidgetResults,
-} from 'next-cloudinary';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { VideoUploader } from '@/components/admin/VideoUploader';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -21,19 +27,20 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
-  Calendar,
+  BookOpen,
   Clock,
+  Eye,
   FileText,
-  GraduationCap,
+  GripVertical,
   Image as ImageIcon,
   Loader2,
+  Pencil,
   PlayCircle,
-  PlusCircle,
+  Plus,
   RefreshCw,
+  Save,
   Trash2,
   Upload,
-  Users,
-  Check,
   Video,
 } from 'lucide-react';
 import { cursosService } from '@/lib/api/services/cursos.service';
@@ -42,48 +49,28 @@ import {
   Curso,
   Modulo,
   CursoNivel,
+  CursoCategoria,
   TipoConteudo,
-  Attachment,
   CreateModuloDTO,
 } from '@/lib/api/types';
 import { CoursePreview } from '@/components/admin/CoursePreview';
+import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
-interface NewModuleForm {
-  sectionTitle: string;
-  title: string;
-  description: string;
-  order: number;
-  contentType: TipoConteudo;
-  textContent: string;
-  estimatedDuration: number;
-  required: boolean;
-  attachments: Attachment[];
-  resources: { label: string; url: string }[];
-  transcriptUrl: string;
-  subtitleUrl: string;
-}
+// ============================================================================
+// Helpers
+// ============================================================================
 
 const levelLabel: Record<CursoNivel | string, string> = {
   basico: 'Básico',
   intermediario: 'Intermediário',
   avancado: 'Avançado',
-  // legacy fallbacks
   beginner: 'Iniciante',
   intermediate: 'Intermediário',
   advanced: 'Avançado',
 };
 
-const contentTypeLabel: Record<TipoConteudo, string> = {
-  video: 'Vídeo',
-  texto: 'Texto',
-  quiz: 'Quiz',
-  avaliacao: 'Avaliação',
-};
-
-function splitSectionAndLessonTitle(title: string): {
-  section: string;
-  lesson: string;
-} {
+function splitSectionAndLessonTitle(title: string) {
   const parts = title.split('::').map((p) => p.trim());
   if (parts.length >= 2 && parts[0]) {
     return { section: parts[0], lesson: parts.slice(1).join(' :: ').trim() };
@@ -91,17 +78,23 @@ function splitSectionAndLessonTitle(title: string): {
   return { section: 'Geral', lesson: title };
 }
 
+// ============================================================================
+// Page
+// ============================================================================
+
 export default function AdminCourseDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+
+  // -- Course state --
   const [course, setCourse] = useState<Curso | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // -- Edit form state --
   const [editingCourse, setEditingCourse] = useState(false);
   const [savingCourse, setSavingCourse] = useState(false);
-  const [courseMessage, setCourseMessage] = useState<string | null>(null);
-  const [courseError, setCourseError] = useState<string | null>(null);
   const [courseDraft, setCourseDraft] = useState<{
     titulo: string;
     descricao: string;
@@ -109,45 +102,37 @@ export default function AdminCourseDetailsPage() {
     nivel: string;
     cargaHoraria: number;
   } | null>(null);
+
+  // -- Image --
   const [updatingImage, setUpdatingImage] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [imageSuccess, setImageSuccess] = useState<string | null>(null);
+
+  // -- Modules --
   const [modules, setModules] = useState<Modulo[]>([]);
   const [loadingModules, setLoadingModules] = useState(true);
-  const [modulesError, setModulesError] = useState<string | null>(null);
-  const [moduleMessage, setModuleMessage] = useState<string | null>(null);
-  const [moduleError, setModuleError] = useState<string | null>(null);
   const [creatingModule, setCreatingModule] = useState(false);
-  const [refreshingModules, setRefreshingModules] = useState(false);
-  const [uploadingModuleId, setUploadingModuleId] = useState<string | null>(
-    null,
-  );
   const [deletingModuleId, setDeletingModuleId] = useState<string | null>(null);
-  const [deletingVideoModuleId, setDeletingVideoModuleId] = useState<
-    string | null
-  >(null);
-  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
-  const [newModuleForm, setNewModuleForm] = useState<NewModuleForm>({
+
+  // -- Lesson dialog --
+  const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
+  const [lessonForm, setLessonForm] = useState({
     sectionTitle: '',
     title: '',
     description: '',
-    order: 1,
-    contentType: 'video',
+    contentType: 'video' as TipoConteudo,
+    duration: 10,
     textContent: '',
-    estimatedDuration: 10,
-    required: true,
-    attachments: [],
-    resources: [],
-    transcriptUrl: '',
-    subtitleUrl: '',
+    videoUrl: '',
+    videoPublicId: '',
   });
+
+  // ============================================================================
+  // Data fetching
+  // ============================================================================
 
   const fetchCourse = useCallback(async () => {
     if (!params?.id) return;
-
     setLoading(true);
     setError(null);
-
     try {
       const data = await cursosService.getById(params.id);
       setCourse(data);
@@ -163,34 +148,18 @@ export default function AdminCourseDetailsPage() {
   const fetchModules = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!params?.id) return;
-
-      const silent = options?.silent ?? false;
-      if (!silent) {
-        setLoadingModules(true);
-      } else {
-        setRefreshingModules(true);
-      }
-      setModulesError(null);
-
+      if (!options?.silent) setLoadingModules(true);
       try {
         const list = await modulosService.list(params.id);
         setModules(list);
-        setNewModuleForm((current) => ({
-          ...current,
-          order: list.length + 1,
-        }));
-      } catch (fetchError) {
-        setModulesError(
-          fetchError instanceof Error
-            ? fetchError.message
-            : 'Erro desconhecido',
-        );
+      } catch {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível carregar módulos.',
+          variant: 'destructive',
+        });
       } finally {
-        if (!silent) {
-          setLoadingModules(false);
-        } else {
-          setRefreshingModules(false);
-        }
+        setLoadingModules(false);
       }
     },
     [params?.id],
@@ -202,16 +171,13 @@ export default function AdminCourseDetailsPage() {
   );
 
   const groupedModules = useMemo(() => {
-    const groups: Array<{
-      section: string;
-      lessons: Modulo[];
-    }> = [];
+    const groups: Array<{ section: string; lessons: Modulo[] }> = [];
     const map = new Map<string, Modulo[]>();
 
-    for (const lessonModule of sortedModules) {
-      const { section } = splitSectionAndLessonTitle(lessonModule.titulo);
+    for (const m of sortedModules) {
+      const { section } = splitSectionAndLessonTitle(m.titulo);
       const list = map.get(section) || [];
-      list.push(lessonModule);
+      list.push(m);
       map.set(section, list);
     }
 
@@ -219,7 +185,6 @@ export default function AdminCourseDetailsPage() {
       groups.push({ section, lessons });
     }
 
-    // Preserve order by first appearance in sortedModules
     groups.sort((a, b) => {
       const aIdx = sortedModules.findIndex(
         (m) => splitSectionAndLessonTitle(m.titulo).section === a.section,
@@ -233,14 +198,16 @@ export default function AdminCourseDetailsPage() {
     return groups;
   }, [sortedModules]);
 
-  const selectedModule = useMemo(() => {
-    if (sortedModules.length === 0) return null;
+  const existingSections = useMemo(() => {
+    const sections = new Set<string>();
+    modules.forEach((m) => {
+      const { section } = splitSectionAndLessonTitle(m.titulo);
+      sections.add(section);
+    });
+    return Array.from(sections);
+  }, [modules]);
 
-    return (
-      sortedModules.find((module) => module.id === selectedModuleId) ||
-      sortedModules[0]
-    );
-  }, [sortedModules, selectedModuleId]);
+  const totalLessons = sortedModules.length;
 
   useEffect(() => {
     fetchCourse();
@@ -262,250 +229,163 @@ export default function AdminCourseDetailsPage() {
   }, [fetchModules]);
 
   useEffect(() => {
-    if (!selectedModuleId && sortedModules.length > 0) {
-      setSelectedModuleId(sortedModules[0].id);
-      return;
-    }
-
-    if (
-      selectedModuleId &&
-      sortedModules.length > 0 &&
-      !sortedModules.some((module) => module.id === selectedModuleId)
-    ) {
-      setSelectedModuleId(sortedModules[0].id);
-    }
-  }, [selectedModuleId, sortedModules]);
-
-  useEffect(() => {
-    if (searchParams.get('warning') === 'thumbnail') {
-      setImageError(
-        'O curso foi criado, mas a capa não foi aplicada automaticamente. Faça o upload da capa nesta tela.',
-      );
-    }
-
-    if (searchParams.get('warning')?.includes('publish')) {
-      setCourseError(
-        'O curso foi criado, mas não foi possível publicar automaticamente. Tente publicar novamente nesta tela.',
-      );
-    }
-
     if (searchParams.get('created') === '1') {
-      setCourseMessage(
-        'Curso criado. Agora você pode editar e montar a trilha.',
-      );
+      toast({
+        title: 'Curso criado!',
+        description: 'Agora você pode editar e montar a trilha.',
+      });
+    }
+    if (searchParams.get('warning') === 'thumbnail') {
+      toast({
+        title: 'Atenção',
+        description: 'A capa não foi aplicada. Faça o upload nesta tela.',
+        variant: 'destructive',
+      });
     }
   }, [searchParams]);
+
+  // ============================================================================
+  // Actions
+  // ============================================================================
 
   async function handleSaveCourse() {
     if (!course || !courseDraft) return;
     setSavingCourse(true);
-    setCourseError(null);
-    setCourseMessage(null);
     try {
-      // Partial updates
       const updated = await cursosService.update(course.id, {
         ...courseDraft,
-        // @ts-ignore
-        nivel: courseDraft.nivel,
-        // @ts-ignore
-        categoria: courseDraft.categoria,
+        nivel: courseDraft.nivel as CursoNivel,
+        categoria: courseDraft.categoria as CursoCategoria,
         cargaHoraria: Number(courseDraft.cargaHoraria) || 1,
       });
-
       setCourse(updated);
       setEditingCourse(false);
-      setCourseMessage('Curso atualizado com sucesso.');
+      toast({ title: 'Salvo', description: 'Curso atualizado com sucesso.' });
     } catch (err) {
-      setCourseError(
-        err instanceof Error ? err.message : 'Erro ao salvar curso',
-      );
+      toast({
+        title: 'Erro',
+        description:
+          err instanceof Error ? err.message : 'Erro ao salvar curso',
+        variant: 'destructive',
+      });
     } finally {
       setSavingCourse(false);
     }
   }
 
-  async function handleUploadImageFile(file: File) {
+  async function handleUploadImage(file: File) {
     if (!course) return;
-
     setUpdatingImage(true);
-    setImageError(null);
-    setImageSuccess(null);
-
     try {
       const { thumbnailUrl } = await cursosService.uploadThumbnail(
         course.id,
         file,
       );
-
       setCourse((prev) => (prev ? { ...prev, thumbnailUrl } : null));
-      setImageSuccess('Imagem do curso atualizada com sucesso.');
-    } catch (updateError) {
-      setImageError(
-        updateError instanceof Error
-          ? updateError.message
-          : 'Falha ao atualizar imagem',
-      );
+      toast({ title: 'Capa atualizada!' });
+    } catch (err) {
+      toast({
+        title: 'Erro no upload',
+        description:
+          err instanceof Error ? err.message : 'Falha ao atualizar imagem',
+        variant: 'destructive',
+      });
     } finally {
       setUpdatingImage(false);
     }
   }
 
-  async function handleCreateModule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleOpenLessonDialog(initialSection?: string) {
+    setLessonForm({
+      sectionTitle: initialSection || '',
+      title: '',
+      description: '',
+      contentType: 'video',
+      duration: 10,
+      textContent: '',
+      videoUrl: '',
+      videoPublicId: '',
+    });
+    setLessonDialogOpen(true);
+  }
+
+  async function handleCreateLesson() {
     if (!course) return;
-
-    if (!newModuleForm.sectionTitle.trim()) {
-      setModuleError('Informe o nome do módulo (seção).');
-      return;
-    }
-
-    if (!newModuleForm.title.trim()) {
-      setModuleError('Informe o título da aula.');
+    if (!lessonForm.sectionTitle.trim() || !lessonForm.title.trim()) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha o nome do módulo e o título da aula.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setCreatingModule(true);
-    setModuleError(null);
-    setModuleMessage(null);
-
     try {
       const payload: CreateModuloDTO = {
-        titulo: `${newModuleForm.sectionTitle.trim()} :: ${newModuleForm.title.trim()}`,
-        descricao: newModuleForm.description.trim() || undefined,
-        ordem: Math.max(Number(newModuleForm.order) || 1, 1),
-        tipoConteudo: newModuleForm.contentType,
-        conteudoTexto:
-          newModuleForm.contentType === 'texto'
-            ? newModuleForm.textContent.trim() || undefined
-            : undefined,
+        titulo: `${lessonForm.sectionTitle.trim()} :: ${lessonForm.title.trim()}`,
+        descricao: lessonForm.description.trim() || undefined,
+        ordem: sortedModules.length + 1,
+        tipoConteudo: lessonForm.contentType,
         duracaoEstimada:
-          newModuleForm.estimatedDuration > 0
-            ? newModuleForm.estimatedDuration
-            : undefined,
-        obrigatorio: newModuleForm.required,
-        attachments: newModuleForm.attachments,
-        resources: newModuleForm.resources,
-        transcriptUrl: newModuleForm.transcriptUrl || undefined,
-        subtitleUrl: newModuleForm.subtitleUrl || undefined,
+          lessonForm.duration > 0 ? lessonForm.duration : undefined,
+        obrigatorio: true,
+        ...(lessonForm.contentType === 'texto' && lessonForm.textContent
+          ? { conteudoTexto: lessonForm.textContent }
+          : {}),
+        ...(lessonForm.contentType === 'video' && lessonForm.videoUrl
+          ? {
+              videoUrl: lessonForm.videoUrl,
+              videoPublicId: lessonForm.videoPublicId,
+            }
+          : {}),
       };
 
-      const createdModule = await modulosService.create(course.id, payload);
-
-      setNewModuleForm((current) => ({
-        ...current,
-        sectionTitle: current.sectionTitle,
-        title: '',
-        description: '',
-        textContent: '',
-        order: current.order + 1,
-        estimatedDuration: current.estimatedDuration || 10,
-        attachments: [],
-        resources: [],
-        transcriptUrl: '',
-        subtitleUrl: '',
-      }));
-      setSelectedModuleId(createdModule.id);
-      setModuleMessage('Módulo criado com sucesso.');
-
+      await modulosService.create(course.id, payload);
       await fetchModules({ silent: true });
-    } catch (createError) {
-      setModuleError(
-        createError instanceof Error
-          ? createError.message
-          : 'Falha ao criar módulo',
-      );
+      setLessonDialogOpen(false);
+      toast({ title: 'Aula criada!', description: 'Adicionada à trilha.' });
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description:
+          err instanceof Error ? err.message : 'Falha ao criar módulo',
+        variant: 'destructive',
+      });
     } finally {
       setCreatingModule(false);
     }
   }
 
-  async function handleDeleteModule(moduleToDelete: Modulo) {
-    if (
-      !confirm(
-        `Excluir o módulo "${moduleToDelete.ordem}. ${moduleToDelete.titulo}"?`,
-      )
-    ) {
+  async function handleDeleteModule(mod: Modulo) {
+    if (!confirm(`Excluir "${splitSectionAndLessonTitle(mod.titulo).lesson}"?`))
       return;
-    }
-
     if (!course) return;
 
-    setDeletingModuleId(moduleToDelete.id);
-    setModuleError(null);
-    setModuleMessage(null);
-
+    setDeletingModuleId(mod.id);
     try {
-      await modulosService.delete(course.id, moduleToDelete.id);
-
-      setModules((current) =>
-        current.filter((module) => module.id !== moduleToDelete.id),
-      );
-      setModuleMessage('Módulo removido com sucesso.');
-    } catch (deleteError) {
-      setModuleError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : 'Falha ao excluir módulo',
-      );
+      await modulosService.delete(course.id, mod.id);
+      setModules((prev) => prev.filter((m) => m.id !== mod.id));
+      toast({ title: 'Aula removida.' });
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: err instanceof Error ? err.message : 'Falha ao excluir',
+        variant: 'destructive',
+      });
     } finally {
       setDeletingModuleId(null);
     }
   }
 
-  async function handleUploadModuleVideo(moduleId: string, file: File) {
-    if (!course) return;
-
-    setUploadingModuleId(moduleId);
-    setModuleError(null);
-    setModuleMessage(null);
-
-    try {
-      await modulosService.uploadVideo(course.id, moduleId, file);
-
-      await fetchModules({ silent: true });
-      setSelectedModuleId(moduleId);
-      setModuleMessage('Vídeo enviado com sucesso.');
-    } catch (uploadError) {
-      setModuleError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : 'Falha no upload do vídeo',
-      );
-    } finally {
-      setUploadingModuleId(null);
-    }
-  }
-
-  async function handleDeleteModuleVideo(moduleId: string) {
-    if (!course) return;
-    if (!confirm('Remover o vídeo deste módulo?')) {
-      return;
-    }
-
-    setDeletingVideoModuleId(moduleId);
-    setModuleError(null);
-    setModuleMessage(null);
-
-    try {
-      await modulosService.deleteVideo(course.id, moduleId);
-
-      await fetchModules({ silent: true });
-      setModuleMessage('Vídeo removido com sucesso.');
-    } catch (deleteError) {
-      setModuleError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : 'Falha ao remover vídeo',
-      );
-    } finally {
-      setDeletingVideoModuleId(null);
-    }
-  }
+  // ============================================================================
+  // Loading / Error
+  // ============================================================================
 
   if (loading) {
     return (
       <div className='flex items-center justify-center h-[50vh]'>
-        <Loader2 className='h-6 w-6 animate-spin text-blue-600' />
+        <Loader2 className='h-6 w-6 animate-spin text-primary' />
       </div>
     );
   }
@@ -513,20 +393,15 @@ export default function AdminCourseDetailsPage() {
   if (error || !course) {
     return (
       <div className='space-y-6'>
-        <Button
-          variant='outline'
-          onClick={() => router.push('/admin/cursos')}
-          className='border-slate-200 text-slate-600'
-        >
+        <Button variant='outline' onClick={() => router.push('/admin/cursos')}>
           <ArrowLeft className='h-4 w-4 mr-2' />
           Voltar para cursos
         </Button>
-
-        <Card className='bg-red-50 border-red-200'>
+        <Card className='bg-destructive/10 border-destructive/30'>
           <CardContent className='p-6 flex items-center gap-3'>
-            <AlertCircle className='h-5 w-5 text-red-600' />
-            <p className='text-red-700'>
-              {error || 'Curso não encontrado no backend'}
+            <AlertCircle className='h-5 w-5 text-destructive' />
+            <p className='text-destructive'>
+              {error || 'Curso não encontrado.'}
             </p>
           </CardContent>
         </Card>
@@ -534,27 +409,36 @@ export default function AdminCourseDetailsPage() {
     );
   }
 
+  // ============================================================================
+  // Render
+  // ============================================================================
+
   return (
-    <div className='space-y-10'>
+    <div className='max-w-4xl mx-auto space-y-6'>
+      {/* Header */}
       <div className='flex items-center justify-between gap-4'>
         <div className='flex items-center gap-3'>
           <Button
-            variant='outline'
+            variant='ghost'
+            size='icon'
             onClick={() => router.push('/admin/cursos')}
-            className='border-slate-200 text-slate-600'
           >
-            <ArrowLeft className='h-4 w-4 mr-2' />
-            Voltar
+            <ArrowLeft className='h-4 w-4' />
           </Button>
           <div className='flex items-center gap-2'>
-            <h1 className='text-2xl font-bold text-slate-900'>
+            <h1 className='text-2xl font-bold text-foreground'>
               {course.titulo}
             </h1>
-            <span
-              className={`px-2 py-1 text-xs rounded-full border ${course.status === 'published' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}
+            <Badge
+              variant='outline'
+              className={
+                course.status === 'published'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }
             >
               {course.status === 'published' ? 'Publicado' : 'Rascunho'}
-            </span>
+            </Badge>
           </div>
         </div>
         <div className='flex gap-2'>
@@ -562,330 +446,556 @@ export default function AdminCourseDetailsPage() {
           <Button
             variant='outline'
             onClick={() => setEditingCourse(!editingCourse)}
-            className='border-slate-200'
           >
-            {editingCourse ? 'Cancelar Edição' : 'Editar Curso'}
+            <Pencil className='h-4 w-4 mr-2' />
+            {editingCourse ? 'Cancelar' : 'Editar Curso'}
           </Button>
         </div>
       </div>
 
-      <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-        <Card className='lg:col-span-2 bg-white border-slate-200 overflow-hidden shadow-sm'>
-          <div className='h-72 sm:h-96 lg:h-[450px] bg-slate-100'>
-            {course.thumbnailUrl ? (
-              <img
-                src={course.thumbnailUrl}
-                alt={course.titulo}
-                className='w-full h-full object-cover'
-              />
-            ) : (
-              <div className='w-full h-full flex items-center justify-center text-slate-300'>
-                <ImageIcon className='h-14 w-14' />
-              </div>
-            )}
-          </div>
-          <div className='p-6 border-b border-slate-100'>
-            <div className='flex flex-wrap gap-2'>
-              <span className='px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs border border-blue-100'>
-                {course.categoria}
-              </span>
-              <span className='px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs border border-emerald-100'>
-                {levelLabel[course.nivel] || course.nivel}
-              </span>
-            </div>
-          </div>
-          <CardContent className='p-6 pt-6 space-y-6'>
-            {courseMessage && (
-              <div className='rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700'>
-                {courseMessage}
-              </div>
-            )}
-            {courseError && (
-              <div className='rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
-                {courseError}
-              </div>
-            )}
-            {imageError && (
-              <div className='rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
-                {imageError}
-              </div>
-            )}
-            {imageSuccess && (
-              <div className='rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700'>
-                {imageSuccess}
-              </div>
-            )}
+      {/* Tabs */}
+      <Tabs defaultValue='details'>
+        <TabsList className='w-full'>
+          <TabsTrigger value='details' className='flex-1'>
+            <BookOpen className='h-4 w-4 mr-2' />
+            Detalhes do Curso
+          </TabsTrigger>
+          <TabsTrigger value='modules' className='flex-1'>
+            <GripVertical className='h-4 w-4 mr-2' />
+            Módulos e Aulas
+          </TabsTrigger>
+        </TabsList>
 
-            <p className='text-slate-600 leading-relaxed'>{course.descricao}</p>
-
-            <div className='space-y-3'>
-              <h3 className='text-base font-semibold text-slate-800'>Trilha</h3>
-              {loadingModules ? (
-                <div className='flex items-center gap-2 text-sm text-slate-500'>
-                  <Loader2 className='h-4 w-4 animate-spin text-blue-600' />
-                  Carregando trilha...
-                </div>
-              ) : sortedModules.length === 0 ? (
-                <p className='text-sm text-slate-500'>
-                  Ainda não há aulas neste curso.
-                </p>
-              ) : (
-                <div className='space-y-4'>
-                  {groupedModules.slice(0, 3).map((group) => (
-                    <div
-                      key={group.section}
-                      className='rounded-lg border border-slate-200 bg-slate-50/50 p-4'
-                    >
-                      <div className='flex items-center justify-between'>
-                        <p className='text-sm font-semibold text-slate-800'>
-                          {group.section}
-                        </p>
-                        <p className='text-xs text-slate-400'>
-                          {group.lessons.length} aulas
-                        </p>
-                      </div>
-                      <div className='mt-3 space-y-1.5'>
-                        {group.lessons.slice(0, 4).map((lesson) => (
-                          <div
-                            key={lesson.id}
-                            className='flex items-center justify-between gap-3 text-sm'
-                          >
-                            <span className='truncate text-slate-700'>
-                              {lesson.ordem}.{' '}
-                              {splitSectionAndLessonTitle(lesson.titulo).lesson}
-                            </span>
-                            <span className='shrink-0 text-xs text-slate-400'>
-                              {lesson.duracaoEstimada || 0} min
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+        {/* ===== TAB 1: Details ===== */}
+        <TabsContent value='details'>
+          <Card>
+            <CardContent className='p-6 space-y-6'>
+              {/* Cover Image */}
+              <div className='space-y-2'>
+                <Label>Capa do Curso</Label>
+                <div className='relative aspect-[16/7] rounded-xl overflow-hidden border-2 border-dashed border-border bg-muted/30 group'>
+                  {course.thumbnailUrl ? (
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.titulo}
+                      className='w-full h-full object-cover'
+                    />
+                  ) : (
+                    <div className='absolute inset-0 flex flex-col items-center justify-center text-muted-foreground'>
+                      <ImageIcon className='h-10 w-10 mb-2 opacity-40' />
+                      <span className='text-sm'>Sem capa</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className='space-y-8'>
-          <Card className='bg-white border-slate-200 shadow-sm'>
-            <CardHeader>
-              <CardTitle className='text-lg'>Gerenciar Conteúdo</CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='rounded-lg border border-2 border-dashed border-slate-200 p-6 hover:bg-slate-50/50 transition-colors'>
-                <div className='flex flex-col items-center gap-2 text-center'>
-                  <label
-                    className={`cursor-pointer flex flex-col items-center gap-2 ${
-                      updatingImage ? 'opacity-50 pointer-events-none' : ''
-                    }`}
-                  >
+                  )}
+                  {/* Overlay for upload */}
+                  <label className='absolute inset-0 flex flex-col items-center justify-center bg-black/0 hover:bg-black/40 transition-all cursor-pointer opacity-0 group-hover:opacity-100'>
                     <input
                       type='file'
                       accept='image/*'
                       className='hidden'
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleUploadImageFile(file);
+                        if (file) handleUploadImage(file);
                       }}
                     />
                     {updatingImage ? (
-                      <Loader2 className='h-10 w-10 text-blue-600 animate-spin' />
+                      <Loader2 className='h-8 w-8 text-white animate-spin' />
                     ) : (
-                      <Upload className='h-10 w-10 text-slate-400' />
+                      <>
+                        <Upload className='h-8 w-8 text-white mb-1' />
+                        <span className='text-sm text-white font-medium'>
+                          Alterar Capa
+                        </span>
+                      </>
                     )}
-                    <span className='text-sm font-medium text-slate-700'>
-                      {updatingImage ? 'Enviando...' : 'Alterar Capa'}
-                    </span>
-                    <span className='text-xs text-slate-400'>PNG ou JPG</span>
                   </label>
                 </div>
               </div>
 
-              <div className='pt-2'>
-                <div className='text-sm font-medium text-slate-700 mb-2'>
-                  Adicionar Nova Aula
-                </div>
-                <form onSubmit={handleCreateModule} className='space-y-3'>
-                  {moduleError && (
-                    <div className='text-xs text-red-600 bg-red-50 p-2 rounded'>
-                      {moduleError}
-                    </div>
-                  )}
-                  {moduleMessage && (
-                    <div className='text-xs text-emerald-600 bg-emerald-50 p-2 rounded'>
-                      {moduleMessage}
-                    </div>
-                  )}
+              <Separator />
 
-                  <Input
-                    placeholder='Nome da Seção (ex: Módulo 1: Introdução)'
-                    value={newModuleForm.sectionTitle}
-                    onChange={(e) =>
-                      setNewModuleForm({
-                        ...newModuleForm,
-                        sectionTitle: e.target.value,
-                      })
-                    }
-                    className='text-sm'
-                  />
-                  <Input
-                    placeholder='Título da Aula'
-                    value={newModuleForm.title}
-                    onChange={(e) =>
-                      setNewModuleForm({
-                        ...newModuleForm,
-                        title: e.target.value,
-                      })
-                    }
-                    className='text-sm'
-                  />
-                  <Select
-                    value={newModuleForm.contentType}
-                    onValueChange={(val: any) =>
-                      setNewModuleForm({ ...newModuleForm, contentType: val })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder='Tipo de Conteúdo' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='video'>Vídeo</SelectItem>
-                      <SelectItem value='texto'>Texto</SelectItem>
-                      <SelectItem value='quiz'>Quiz</SelectItem>
-                      <SelectItem value='avaliacao'>Avaliação</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {newModuleForm.contentType === 'texto' && (
-                    <Textarea
-                      placeholder='Conteúdo em texto...'
-                      value={newModuleForm.textContent}
+              {/* Course fields */}
+              {editingCourse && courseDraft ? (
+                <div className='space-y-5'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='titulo'>Título *</Label>
+                    <Input
+                      id='titulo'
+                      value={courseDraft.titulo}
                       onChange={(e) =>
-                        setNewModuleForm({
-                          ...newModuleForm,
-                          textContent: e.target.value,
+                        setCourseDraft({
+                          ...courseDraft,
+                          titulo: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='descricao'>Descrição *</Label>
+                    <Textarea
+                      id='descricao'
+                      value={courseDraft.descricao}
+                      onChange={(e) =>
+                        setCourseDraft({
+                          ...courseDraft,
+                          descricao: e.target.value,
                         })
                       }
                       className='min-h-[100px]'
                     />
-                  )}
-
-                  <Button
-                    type='submit'
-                    className='w-full bg-blue-600 hover:bg-blue-700'
-                    disabled={creatingModule}
-                  >
-                    {creatingModule ? (
-                      <Loader2 className='h-4 w-4 animate-spin' />
-                    ) : (
-                      <PlusCircle className='h-4 w-4 mr-2' />
-                    )}
-                    Adicionar Aula
-                  </Button>
-                </form>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className='bg-white border-slate-200 shadow-sm'>
-            <CardHeader>
-              <CardTitle className='text-lg'>Última Aula Adicionada</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {sortedModules.length > 0 ? (
-                <div className='space-y-3'>
-                  <div className='flex items-center justify-between'>
-                    <span className='text-sm font-medium text-slate-900'>
-                      {sortedModules[sortedModules.length - 1].titulo}
-                    </span>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='text-red-500 hover:text-red-700 hover:bg-red-50'
-                      onClick={() =>
-                        handleDeleteModule(
-                          sortedModules[sortedModules.length - 1],
-                        )
+                  </div>
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div className='space-y-2'>
+                      <Label>Categoria</Label>
+                      <Select
+                        value={courseDraft.categoria}
+                        onValueChange={(v) =>
+                          setCourseDraft({ ...courseDraft, categoria: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='tecnico'>Técnico</SelectItem>
+                          <SelectItem value='gestao'>Gestão</SelectItem>
+                          <SelectItem value='comportamental'>
+                            Comportamental
+                          </SelectItem>
+                          <SelectItem value='idiomas'>Idiomas</SelectItem>
+                          <SelectItem value='outros'>Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label>Nível</Label>
+                      <Select
+                        value={courseDraft.nivel}
+                        onValueChange={(v) =>
+                          setCourseDraft({ ...courseDraft, nivel: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='basico'>Básico</SelectItem>
+                          <SelectItem value='intermediario'>
+                            Intermediário
+                          </SelectItem>
+                          <SelectItem value='avancado'>Avançado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='cargaHoraria'>Carga Horária (horas)</Label>
+                    <Input
+                      id='cargaHoraria'
+                      type='number'
+                      value={courseDraft.cargaHoraria}
+                      onChange={(e) =>
+                        setCourseDraft({
+                          ...courseDraft,
+                          cargaHoraria: Number(e.target.value) || 0,
+                        })
                       }
-                      disabled={
-                        deletingModuleId ===
-                        sortedModules[sortedModules.length - 1].id
-                      }
-                    >
-                      {deletingModuleId ===
-                      sortedModules[sortedModules.length - 1].id ? (
-                        <Loader2 className='h-4 w-4 animate-spin' />
+                      className='w-32'
+                    />
+                  </div>
+                  <div className='flex gap-2 pt-2'>
+                    <Button onClick={handleSaveCourse} disabled={savingCourse}>
+                      {savingCourse ? (
+                        <Loader2 className='h-4 w-4 animate-spin mr-2' />
                       ) : (
-                        <Trash2 className='h-4 w-4' />
+                        <Save className='h-4 w-4 mr-2' />
                       )}
+                      Salvar Alterações
+                    </Button>
+                    <Button
+                      variant='outline'
+                      onClick={() => setEditingCourse(false)}
+                    >
+                      Cancelar
                     </Button>
                   </div>
-                  {sortedModules[sortedModules.length - 1].tipoConteudo ===
-                    'video' && (
-                    <div className='flex items-center gap-2'>
-                      {sortedModules[sortedModules.length - 1].videoUrl ? (
-                        <div className='flex items-center gap-2 text-emerald-600 text-sm'>
-                          <Check className='h-4 w-4' /> Vídeo enviado
-                        </div>
-                      ) : (
-                        <div className='w-full'>
-                          <p className='text-xs text-slate-500 mb-2'>
-                            Fazer upload de vídeo:
-                          </p>
-                          <CldUploadWidget
-                            uploadPreset={
-                              process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-                            }
-                            options={{
-                              maxFiles: 1,
-                              resourceType: 'video',
-                              clientAllowedFormats: ['mp4', 'webm', 'mov'],
-                            }}
-                            onSuccess={(
-                              result: CloudinaryUploadWidgetResults,
-                            ) => {
-                              if (
-                                result.info &&
-                                typeof result.info !== 'string'
-                              ) {
-                                const moduleId =
-                                  sortedModules[sortedModules.length - 1].id;
-                                modulosService
-                                  .update(course?.id || '', moduleId, {
-                                    videoUrl: result.info.secure_url,
-                                    videoPublicId: result.info.public_id,
-                                  })
-                                  .then(() => fetchModules({ silent: true }));
-                              }
-                            }}
-                          >
-                            {({ open }) => (
-                              <Button
-                                variant='outline'
-                                size='sm'
-                                className='w-full'
-                                onClick={() => open?.()}
-                              >
-                                <Video className='h-3 w-3 mr-2' /> Upload Vídeo
-                              </Button>
-                            )}
-                          </CldUploadWidget>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               ) : (
-                <p className='text-sm text-slate-500'>
-                  Nenhuma aula cadastrada.
-                </p>
+                <div className='space-y-4'>
+                  <div>
+                    <p className='text-sm text-muted-foreground'>Descrição</p>
+                    <p className='text-foreground leading-relaxed mt-1'>
+                      {course.descricao}
+                    </p>
+                  </div>
+                  <div className='flex flex-wrap gap-3'>
+                    <Badge variant='secondary'>{course.categoria}</Badge>
+                    <Badge
+                      variant='outline'
+                      className='bg-emerald-50 text-emerald-700 border-emerald-200'
+                    >
+                      {levelLabel[course.nivel] || course.nivel}
+                    </Badge>
+                    <Badge variant='outline'>
+                      <Clock className='h-3 w-3 mr-1' />
+                      {course.cargaHoraria}h
+                    </Badge>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+        {/* ===== TAB 2: Modules & Lessons ===== */}
+        <TabsContent value='modules'>
+          <Card>
+            <CardContent className='p-6 space-y-6'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <h2 className='text-xl font-bold text-foreground'>
+                    Módulos e Aulas
+                  </h2>
+                  <p className='text-sm text-muted-foreground'>
+                    {groupedModules.length} módulo(s) • {totalLessons} aula(s)
+                  </p>
+                </div>
+                <div className='flex gap-2'>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => fetchModules({ silent: true })}
+                  >
+                    <RefreshCw className='h-3.5 w-3.5 mr-1.5' />
+                    Atualizar
+                  </Button>
+                  <Button size='sm' onClick={() => handleOpenLessonDialog()}>
+                    <Plus className='h-3.5 w-3.5 mr-1.5' />
+                    Adicionar Aula
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Module list */}
+              {loadingModules ? (
+                <div className='flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center'>
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                  Carregando módulos...
+                </div>
+              ) : sortedModules.length === 0 ? (
+                <div className='text-center py-12'>
+                  <BookOpen className='h-12 w-12 text-muted-foreground/30 mx-auto mb-3' />
+                  <p className='text-muted-foreground'>
+                    Nenhuma aula criada ainda
+                  </p>
+                  <p className='text-sm text-muted-foreground/70 mb-4'>
+                    Clique em "Adicionar Aula" para começar
+                  </p>
+                  <Button size='sm' onClick={() => handleOpenLessonDialog()}>
+                    <Plus className='h-3.5 w-3.5 mr-1.5' />
+                    Adicionar Aula
+                  </Button>
+                </div>
+              ) : (
+                <div className='space-y-4'>
+                  {groupedModules.map((group, gIdx) => (
+                    <div
+                      key={group.section}
+                      className='rounded-lg border border-border overflow-hidden'
+                    >
+                      {/* Section header */}
+                      <div className='px-4 py-3 bg-muted/50 flex items-center justify-between'>
+                        <div>
+                          <p className='text-[10px] font-bold text-muted-foreground uppercase tracking-widest'>
+                            MÓDULO {gIdx + 1}
+                          </p>
+                          <p className='text-sm font-semibold text-foreground'>
+                            {group.section}
+                          </p>
+                        </div>
+                        <div className='flex items-center gap-2'>
+                          <Badge variant='secondary' className='text-xs'>
+                            {group.lessons.length} aula(s)
+                          </Badge>
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            className='h-6 w-6 p-0'
+                            onClick={() =>
+                              handleOpenLessonDialog(group.section)
+                            }
+                          >
+                            <Plus className='h-4 w-4' />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Lessons */}
+                      <div className='divide-y divide-border'>
+                        {group.lessons.map((lesson) => {
+                          const lessonTitle = splitSectionAndLessonTitle(
+                            lesson.titulo,
+                          ).lesson;
+                          const isDeleting = deletingModuleId === lesson.id;
+
+                          return (
+                            <div
+                              key={lesson.id}
+                              className='flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors group'
+                            >
+                              {/* Order number */}
+                              <div className='w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0'>
+                                {lesson.ordem}
+                              </div>
+
+                              {/* Info */}
+                              <div className='flex-1 min-w-0'>
+                                <p className='font-medium text-foreground truncate'>
+                                  {lessonTitle}
+                                </p>
+                                <div className='flex items-center gap-2 mt-0.5'>
+                                  <span className='text-xs text-muted-foreground flex items-center gap-1'>
+                                    {lesson.tipoConteudo === 'video' ? (
+                                      <PlayCircle className='h-3 w-3' />
+                                    ) : (
+                                      <FileText className='h-3 w-3' />
+                                    )}
+                                    {lesson.tipoConteudo}
+                                  </span>
+                                  <span className='text-xs text-muted-foreground'>
+                                    •
+                                  </span>
+                                  <span className='text-xs text-muted-foreground'>
+                                    {lesson.duracaoEstimada || 0} min
+                                  </span>
+                                  {lesson.videoUrl && (
+                                    <>
+                                      <span className='text-xs text-muted-foreground'>
+                                        •
+                                      </span>
+                                      <Badge
+                                        variant='outline'
+                                        className='text-[10px] border-emerald-200 text-emerald-600'
+                                      >
+                                        Vídeo ✓
+                                      </Badge>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+                                {lesson.tipoConteudo === 'video' && (
+                                  <VideoUploader
+                                    label=''
+                                    currentVideoUrl={lesson.videoUrl}
+                                    folder='web-skill-first/videos'
+                                    onUploadComplete={(url, publicId) => {
+                                      modulosService
+                                        .update(course.id, lesson.id, {
+                                          videoUrl: url,
+                                          videoPublicId: publicId,
+                                        })
+                                        .then(() =>
+                                          fetchModules({ silent: true }),
+                                        );
+                                    }}
+                                  />
+                                )}
+                                <Button
+                                  variant='ghost'
+                                  size='icon'
+                                  onClick={() => handleDeleteModule(lesson)}
+                                  disabled={isDeleting}
+                                  className='text-muted-foreground hover:text-destructive'
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className='h-4 w-4 animate-spin' />
+                                  ) : (
+                                    <Trash2 className='h-4 w-4' />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* ===== New Lesson Dialog ===== */}
+      <Dialog open={lessonDialogOpen} onOpenChange={setLessonDialogOpen}>
+        <DialogContent className='sm:max-w-lg'>
+          <DialogHeader>
+            <DialogTitle>Nova Aula</DialogTitle>
+          </DialogHeader>
+
+          <div className='space-y-5 pt-2'>
+            <div className='space-y-2'>
+              <Label>Nome do Módulo (Seção) *</Label>
+              <Input
+                placeholder='Ex: Módulo 1: Introdução'
+                value={lessonForm.sectionTitle}
+                onChange={(e) =>
+                  setLessonForm((f) => ({
+                    ...f,
+                    sectionTitle: e.target.value,
+                  }))
+                }
+              />
+              {existingSections.length > 0 && (
+                <div className='flex flex-wrap gap-2 mt-1'>
+                  <span className='text-xs text-muted-foreground w-full'>
+                    Sugestões:
+                  </span>
+                  {existingSections.map((s) => (
+                    <Badge
+                      key={s}
+                      variant='secondary'
+                      className='cursor-pointer hover:bg-primary/20 transition-colors'
+                      onClick={() =>
+                        setLessonForm((f) => ({ ...f, sectionTitle: s }))
+                      }
+                    >
+                      {s}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className='space-y-2'>
+              <Label>Título da Aula *</Label>
+              <Input
+                placeholder='Ex: O que é Kubernetes?'
+                value={lessonForm.title}
+                onChange={(e) =>
+                  setLessonForm((f) => ({ ...f, title: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className='space-y-2'>
+              <Label>Descrição</Label>
+              <Textarea
+                placeholder='Breve descrição da aula...'
+                className='min-h-[60px]'
+                value={lessonForm.description}
+                onChange={(e) =>
+                  setLessonForm((f) => ({
+                    ...f,
+                    description: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className='grid grid-cols-2 gap-4'>
+              <div className='space-y-2'>
+                <Label>Tipo de Conteúdo</Label>
+                <Select
+                  value={lessonForm.contentType}
+                  onValueChange={(v) =>
+                    setLessonForm((f) => ({
+                      ...f,
+                      contentType: v as TipoConteudo,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='video'>Vídeo</SelectItem>
+                    <SelectItem value='texto'>Texto</SelectItem>
+                    <SelectItem value='quiz'>Quiz</SelectItem>
+                    <SelectItem value='avaliacao'>Avaliação</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='space-y-2'>
+                <Label>Duração (min)</Label>
+                <Input
+                  type='number'
+                  placeholder='10'
+                  value={lessonForm.duration || ''}
+                  onChange={(e) =>
+                    setLessonForm((f) => ({
+                      ...f,
+                      duration: Number(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            {lessonForm.contentType === 'video' && (
+              <div className='space-y-2'>
+                <Label>Vídeo da Aula</Label>
+                <VideoUploader
+                  label=''
+                  folder='web-skill-first/videos'
+                  currentVideoUrl={lessonForm.videoUrl || undefined}
+                  onUploadComplete={(url, publicId) =>
+                    setLessonForm((f) => ({
+                      ...f,
+                      videoUrl: url,
+                      videoPublicId: publicId,
+                    }))
+                  }
+                />
+              </div>
+            )}
+
+            {lessonForm.contentType === 'texto' && (
+              <div className='space-y-2'>
+                <Label>Conteúdo em Texto</Label>
+                <Textarea
+                  placeholder='Conteúdo da aula...'
+                  className='min-h-[80px]'
+                  value={lessonForm.textContent}
+                  onChange={(e) =>
+                    setLessonForm((f) => ({
+                      ...f,
+                      textContent: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            )}
+
+            <div className='flex justify-end gap-2 pt-2'>
+              <Button
+                variant='outline'
+                onClick={() => setLessonDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreateLesson}
+                disabled={
+                  creatingModule ||
+                  !lessonForm.sectionTitle.trim() ||
+                  !lessonForm.title.trim()
+                }
+              >
+                {creatingModule && (
+                  <Loader2 className='h-4 w-4 animate-spin mr-2' />
+                )}
+                Criar Aula
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
