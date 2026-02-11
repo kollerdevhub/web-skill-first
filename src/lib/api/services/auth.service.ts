@@ -53,7 +53,7 @@ export const authService = {
 
     return {
       id: user.uid,
-      email: user.email!,
+      email: user.email,
       role: user.email === 'williamkoller30@gmail.com' ? 'admin' : 'candidato', // Simple check for now
     };
   },

@@ -86,7 +86,7 @@ export default function VagaDetalhesPage() {
         setJob(data);
 
         if (user) {
-          const myApps = await candidaturasService.getMinhas();
+          const myApps = await candidaturasService.getMinhas(user.uid);
           const applied = myApps.some((app) => app.vagaId === id);
           setHasApplied(applied);
 
@@ -113,7 +113,7 @@ export default function VagaDetalhesPage() {
     if (!job || !user) return;
     setApplying(true);
     try {
-      await candidaturasService.apply(job.id);
+      await candidaturasService.apply(job.id, user.uid);
       setHasApplied(true);
       toast({
         title: 'Sucesso!',

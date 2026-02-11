@@ -7,13 +7,13 @@ import {
   getDoc,
   query,
   where,
-  orderBy,
   addDoc,
 } from 'firebase/firestore';
 import {
   Certificado,
+  CursoCategoria,
+  CursoNivel,
   ValidateCertificadoResponse,
-  CreateCursoDTO,
 } from '../types';
 
 interface CreateCertificadoDTO {
@@ -106,8 +106,8 @@ export const certificadosService = {
       curso: {
         id: data.cursoId,
         titulo: data.cursoTitulo,
-        categoria: data.cursoCategoria as any,
-        nivel: data.cursoNivel as any,
+        categoria: data.cursoCategoria as CursoCategoria,
+        nivel: data.cursoNivel as CursoNivel,
       },
       candidato: {
         id: data.candidatoId,
@@ -124,7 +124,7 @@ export const certificadosService = {
     };
 
     const cleanData = Object.fromEntries(
-      Object.entries(newCertificate).filter(([_, v]) => v !== undefined),
+      Object.entries(newCertificate).filter(([, value]) => value !== undefined),
     );
 
     const docRef = await addDoc(

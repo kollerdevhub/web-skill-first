@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -68,6 +68,16 @@ interface ModuleDraft {
   id: string;
   title: string;
   lessons: LessonDraft[];
+}
+
+function minutesToHours(minutes: number): number {
+  if (minutes <= 0) return 0;
+  return Number((minutes / 60).toFixed(1));
+}
+
+function sanitizeDurationMinutes(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -172,7 +182,7 @@ export default function NewCoursePage() {
       title: lessonForm.title,
       description: lessonForm.description,
       videoUrl: lessonForm.videoUrl,
-      duration: lessonForm.duration,
+      duration: sanitizeDurationMinutes(lessonForm.duration),
       supplementary: lessonForm.supplementary,
     };
 
@@ -195,6 +205,32 @@ export default function NewCoursePage() {
       ),
     );
   };
+
+  const totalLessonMinutes = useMemo(
+    () =>
+      modules.reduce(
+        (total, mod) =>
+          total +
+          mod.lessons.reduce((lessonSum, lesson) => lessonSum + lesson.duration, 0),
+        0,
+      ),
+    [modules],
+  );
+  const calculatedCourseHours = useMemo(
+    () => minutesToHours(totalLessonMinutes),
+    [totalLessonMinutes],
+  );
+  const totalLessons = useMemo(
+    () => modules.reduce((sum, mod) => sum + mod.lessons.length, 0),
+    [modules],
+  );
+  const activeModule = modules[activeModuleIdx] || null;
+
+  useEffect(() => {
+    setValue('cargaHoraria', calculatedCourseHours, {
+      shouldValidate: true,
+    });
+  }, [calculatedCourseHours, setValue]);
 
   const handleCreateCourse = async () => {
     const valid = await trigger([
@@ -220,7 +256,7 @@ export default function NewCoursePage() {
         descricao: courseValues.descricao,
         categoria: courseValues.categoria,
         nivel: courseValues.nivel,
-        cargaHoraria: courseValues.cargaHoraria,
+        cargaHoraria: calculatedCourseHours,
         ...(courseValues.slug ? { slug: courseValues.slug } : {}),
         status: courseValues.status || 'draft',
         language: courseValues.language || null,
@@ -249,16 +285,19 @@ export default function NewCoursePage() {
             titulo: `${mod.title} :: ${lesson.title}`,
             ordem: globalOrder++,
             tipoConteudo: lesson.videoUrl ? 'video' : 'texto',
-            duracaoEstimada: lesson.duration,
+            duracaoEstimada: sanitizeDurationMinutes(lesson.duration),
             obrigatorio: true,
             ...(lesson.videoUrl ? { videoUrl: lesson.videoUrl } : {}),
             ...(lesson.supplementary
               ? { conteudoTexto: lesson.supplementary }
               : {}),
           };
-          await modulosService.create(id, modulePayload);
+          await modulosService.create(id, modulePayload, {
+            skipDurationRecalculation: true,
+          });
         }
       }
+      await modulosService.recalculateCargaHoraria(id);
 
       toast({
         title: 'Curso criado!',
@@ -276,9 +315,6 @@ export default function NewCoursePage() {
       setLoading(false);
     }
   };
-
-  const activeModule = modules[activeModuleIdx] || null;
-  const totalLessons = modules.reduce((s, m) => s + m.lessons.length, 0);
 
   return (
     <div className='max-w-3xl mx-auto space-y-6'>
@@ -435,17 +471,17 @@ export default function NewCoursePage() {
               {/* Duration + Instructor */}
               <div className='grid grid-cols-2 gap-4'>
                 <div className='space-y-2'>
-                  <Label htmlFor='cargaHoraria'>Duração (horas)</Label>
+                  <Label htmlFor='cargaHoraria'>Duração (calculada)</Label>
                   <Input
                     id='cargaHoraria'
                     type='number'
-                    placeholder='12'
-                    {...register('cargaHoraria', { valueAsNumber: true })}
-                    className={cn(
-                      errors.cargaHoraria &&
-                        'border-destructive focus-visible:ring-destructive',
-                    )}
+                    value={calculatedCourseHours}
+                    readOnly
+                    className='bg-muted/40'
                   />
+                  <p className='text-xs text-muted-foreground'>
+                    {totalLessonMinutes} min somados das aulas ({calculatedCourseHours}h)
+                  </p>
                   <FieldError message={errors.cargaHoraria?.message} />
                 </div>
 
@@ -500,9 +536,14 @@ export default function NewCoursePage() {
                 <h2 className='text-xl font-bold text-foreground'>
                   Módulos do Curso
                 </h2>
-                <span className='text-sm text-muted-foreground'>
-                  {modules.length} módulo(s)
-                </span>
+                <div className='text-right'>
+                  <p className='text-sm text-muted-foreground'>
+                    {modules.length} módulo(s) • {totalLessons} aula(s)
+                  </p>
+                  <p className='text-xs text-muted-foreground'>
+                    Total: {totalLessonMinutes} min ({calculatedCourseHours}h)
+                  </p>
+                </div>
               </div>
 
               {/* Add module */}
@@ -623,7 +664,7 @@ export default function NewCoursePage() {
                             Nenhuma aula criada ainda
                           </p>
                           <p className='text-sm text-muted-foreground/70'>
-                            Clique em "Adicionar Aula" para começar
+                            Clique em &quot;Adicionar Aula&quot; para começar
                           </p>
                         </div>
                       ) : (
@@ -749,7 +790,9 @@ export default function NewCoursePage() {
                 onChange={(e) =>
                   setLessonForm((f) => ({
                     ...f,
-                    duration: Number(e.target.value) || 0,
+                    duration: sanitizeDurationMinutes(
+                      Number(e.target.value) || 0,
+                    ),
                   }))
                 }
                 className='w-32'

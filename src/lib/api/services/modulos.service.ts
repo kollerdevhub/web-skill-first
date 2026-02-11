@@ -6,23 +6,49 @@ import {
   doc,
   getDocs,
   getDoc,
-  addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
-  orderBy,
-  serverTimestamp,
   increment,
   writeBatch,
 } from 'firebase/firestore';
 import { Modulo, CreateModuloDTO, UpdateModuloDTO } from '../types';
+
+function normalizeDurationMinutes(value?: number | null): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.max(0, Math.round(value));
+}
+
+function calculateCourseHours(modules: Modulo[]): number {
+  const totalMinutes = modules.reduce(
+    (sum, mod) => sum + Math.max(0, mod.duracaoEstimada || 0),
+    0,
+  );
+
+  if (totalMinutes <= 0) return 0;
+  return Number((totalMinutes / 60).toFixed(1));
+}
 
 /**
  * Modulos (Course Modules) API Service - Firestore Implementation
  * Modules are stored as a top-level collection 'modulos' with a 'cursoId' field
  */
 export const modulosService = {
+  /**
+   * Recalculate and persist course workload (hours) based on lessons duration (minutes)
+   */
+  async recalculateCargaHoraria(cursoId: string): Promise<number> {
+    const modules = await this.list(cursoId);
+    const cargaHoraria = calculateCourseHours(modules);
+
+    await updateDoc(doc(db, COLLECTIONS.CURSOS, cursoId), {
+      cargaHoraria,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return cargaHoraria;
+  },
+
   /**
    * List modules for a course (public)
    */
@@ -50,14 +76,22 @@ export const modulosService = {
   /**
    * Create a new module (admin/gestor)
    */
-  async create(cursoId: string, data: CreateModuloDTO): Promise<Modulo> {
+  async create(
+    cursoId: string,
+    data: CreateModuloDTO,
+    options?: { skipDurationRecalculation?: boolean },
+  ): Promise<Modulo> {
     try {
       const batch = writeBatch(db);
 
       const newModuleRef = doc(collection(db, COLLECTIONS.MODULOS));
+      const normalizedData: CreateModuloDTO = {
+        ...data,
+        duracaoEstimada: normalizeDurationMinutes(data.duracaoEstimada),
+      };
       // Strip undefined values — Firestore rejects them
       const cleanData = Object.fromEntries(
-        Object.entries(data).filter(([, v]) => v !== undefined),
+        Object.entries(normalizedData).filter(([, v]) => v !== undefined),
       );
       const moduleData = {
         ...cleanData,
@@ -73,6 +107,9 @@ export const modulosService = {
       batch.update(courseRef, { totalModulos: increment(1) });
 
       await batch.commit();
+      if (!options?.skipDurationRecalculation) {
+        await this.recalculateCargaHoraria(cursoId);
+      }
 
       return { id: newModuleRef.id, ...moduleData } as Modulo;
     } catch (error) {
@@ -88,12 +125,23 @@ export const modulosService = {
     cursoId: string,
     moduloId: string,
     data: UpdateModuloDTO,
+    options?: { skipDurationRecalculation?: boolean },
   ): Promise<Modulo> {
     const docRef = doc(db, COLLECTIONS.MODULOS, moduloId);
-    await updateDoc(docRef, {
+    const normalizedData: UpdateModuloDTO = {
       ...data,
+      duracaoEstimada: normalizeDurationMinutes(data.duracaoEstimada),
+    };
+    const cleanData = Object.fromEntries(
+      Object.entries(normalizedData).filter(([, value]) => value !== undefined),
+    );
+    await updateDoc(docRef, {
+      ...cleanData,
       updatedAt: new Date().toISOString(),
     });
+    if (!options?.skipDurationRecalculation) {
+      await this.recalculateCargaHoraria(cursoId);
+    }
 
     const snapshot = await getDoc(docRef);
     return { id: snapshot.id, ...snapshot.data() } as Modulo;
@@ -102,7 +150,11 @@ export const modulosService = {
   /**
    * Delete module (admin/gestor)
    */
-  async delete(cursoId: string, moduloId: string): Promise<void> {
+  async delete(
+    cursoId: string,
+    moduloId: string,
+    options?: { skipDurationRecalculation?: boolean },
+  ): Promise<void> {
     const batch = writeBatch(db);
 
     const moduleRef = doc(db, COLLECTIONS.MODULOS, moduloId);
@@ -113,6 +165,9 @@ export const modulosService = {
     batch.update(courseRef, { totalModulos: increment(-1) });
 
     await batch.commit();
+    if (!options?.skipDurationRecalculation) {
+      await this.recalculateCargaHoraria(cursoId);
+    }
   },
 
   /**

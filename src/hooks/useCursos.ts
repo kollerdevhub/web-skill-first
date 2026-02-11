@@ -167,7 +167,7 @@ export function useCursoStats(id: string) {
 export function useCursoReport(id: string) {
   return useQuery({
     queryKey: cursosKeys.report(id),
-    queryFn: () => cursosService.getReport(id),
+    queryFn: () => cursosService.getReport(),
     enabled: !!id,
   });
 }
@@ -178,7 +178,7 @@ export function useCursoReport(id: string) {
 export function useCursoConclusionReport(id: string) {
   return useQuery({
     queryKey: cursosKeys.conclusionReport(id),
-    queryFn: () => cursosService.getConclusionReport(id),
+    queryFn: () => cursosService.getConclusionReport(),
     enabled: !!id,
   });
 }

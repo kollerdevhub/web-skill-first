@@ -28,6 +28,7 @@ export default function ExplorarCursosPage() {
     q: search || undefined,
     page: 1,
     limit: 30,
+    publishedOnly: true,
   });
   const { data: inscricoes } = useMinhasInscricoes();
   const { data: profile } = useMyProfile();
@@ -44,9 +45,9 @@ export default function ExplorarCursosPage() {
       setEnrollError(null);
       await enrollMutation.mutateAsync(cursoId);
       router.push('/dashboard/cursos');
-    } catch (err: any) {
-      // Assuming error message is in err.message or just string
-      const errorMessage = err?.message || 'Erro desconhecido';
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Erro desconhecido';
 
       setEnrollError(errorMessage);
       if (errorMessage.toLowerCase().includes('perfil de candidato')) {

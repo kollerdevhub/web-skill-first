@@ -6,16 +6,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  GraduationCap,
-  Briefcase,
-  Award,
-  TrendingUp,
   BrainCircuit,
   FileText,
   Target,
-  Users,
-  CheckCircle2,
-  ArrowRight,
   Zap,
 } from 'lucide-react';
 import { LandingHeader } from '@/components/landing-header';
@@ -23,6 +16,7 @@ import { LandingHero } from '@/components/landing-hero';
 import { ScrollToTop } from '@/components/scroll-to-top';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { LandingFeaturedCourses } from '@/components/landing-featured-courses';
 
 export default function Home() {
   return (
@@ -168,64 +162,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Course Preview */}
-      <section className='container mx-auto px-4 py-20'>
-        <div className='flex flex-col md:flex-row justify-between items-center mb-10'>
-          <div>
-            <h2 className='text-3xl font-bold text-slate-900 mb-2'>
-              Cursos em Destaque
-            </h2>
-            <p className='text-slate-600'>Comece a aprender agora mesmo</p>
-          </div>
-          <Link href='/cursos'>
-            <Button variant='ghost' className='text-blue-600'>
-              Ver todos os cursos <ArrowRight className='ml-2 h-4 w-4' />
-            </Button>
-          </Link>
-        </div>
-
-        <div className='grid md:grid-cols-3 gap-6'>
-          {[
-            {
-              title: 'React Completo',
-              students: 120,
-              level: 'Iniciante',
-              image: 'bg-blue-100',
-            },
-            {
-              title: 'Node.js Avançado',
-              students: 85,
-              level: 'Avançado',
-              image: 'bg-green-100',
-            },
-            {
-              title: 'UX/UI Design',
-              students: 200,
-              level: 'Intermediário',
-              image: 'bg-purple-100',
-            },
-          ].map((course, i) => (
-            <div key={i} className='group cursor-pointer'>
-              <div
-                className={`h-40 rounded-xl ${course.image} mb-4 flex items-center justify-center text-slate-400`}
-              >
-                <TrendingUp className='h-10 w-10 opacity-50' />
-              </div>
-              <h3 className='font-bold text-lg text-slate-900 group-hover:text-blue-600 transition-colors'>
-                {course.title}
-              </h3>
-              <div className='flex items-center gap-4 mt-2 text-sm text-slate-500'>
-                <span className='flex items-center gap-1'>
-                  <Users className='h-4 w-4' /> {course.students} alunos
-                </span>
-                <span className='flex items-center gap-1'>
-                  <Award className='h-4 w-4' /> {course.level}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <LandingFeaturedCourses />
 
       {/* CTA */}
       <section className='container mx-auto px-4 pb-20'>

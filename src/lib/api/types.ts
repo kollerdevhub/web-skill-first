@@ -27,7 +27,7 @@ export type UserRole = 'candidato' | 'recrutador' | 'gestor' | 'admin';
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email: string | null;
   role: UserRole;
 }
 
@@ -452,6 +452,7 @@ export interface CursoSearchParams {
   keyword?: string;
   categoria?: CursoCategoria;
   nivel?: CursoNivel;
+  publishedOnly?: boolean;
 }
 
 export interface CursoEstatisticas {

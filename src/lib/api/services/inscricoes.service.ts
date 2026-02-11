@@ -5,23 +5,38 @@ import {
   doc,
   getDocs,
   getDoc,
-  addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
-  orderBy,
   increment,
   writeBatch,
 } from 'firebase/firestore';
 import {
   Inscricao,
+  CursoResumido,
   UpdateProgressoDTO,
   SubmitQuizDTO,
   SubmitQuizResponse,
 } from '../types';
 import { certificadosService } from './certificados.service';
 import { candidatosService } from './candidatos.service';
+
+async function getCourseSummary(cursoId: string): Promise<CursoResumido | null> {
+  const courseRef = doc(db, COLLECTIONS.CURSOS, cursoId);
+  const courseSnap = await getDoc(courseRef);
+
+  if (!courseSnap.exists()) return null;
+
+  const courseData = courseSnap.data();
+  return {
+    id: courseSnap.id,
+    titulo: courseData.titulo,
+    thumbnailUrl: courseData.thumbnailUrl,
+    totalModulos: courseData.totalModulos,
+    categoria: courseData.categoria,
+    cargaHoraria: courseData.cargaHoraria,
+  };
+}
 
 /**
  * Inscricoes (Course Enrollments) API Service - Firestore Implementation
@@ -33,6 +48,10 @@ export const inscricoesService = {
   async enroll(cursoId: string, userId?: string): Promise<Inscricao> {
     const uid = userId || auth.currentUser?.uid;
     if (!uid) throw new Error('Usuario nao autenticado');
+    const courseSummary = await getCourseSummary(cursoId);
+    if (!courseSummary) {
+      throw new Error('Curso não existe ou está indisponível');
+    }
 
     // Check existing enrollment
     const q = query(
@@ -42,9 +61,11 @@ export const inscricoesService = {
     );
     const existing = await getDocs(q);
     if (!existing.empty) {
+      const existingData = existing.docs[0].data() as Inscricao;
       return {
         id: existing.docs[0].id,
-        ...existing.docs[0].data(),
+        ...existingData,
+        curso: courseSummary,
       } as Inscricao;
     }
 
@@ -72,7 +93,11 @@ export const inscricoesService = {
 
     await batch.commit();
 
-    return { id: newEnrollmentRef.id, ...enrollmentData } as Inscricao;
+    return {
+      id: newEnrollmentRef.id,
+      ...enrollmentData,
+      curso: courseSummary,
+    } as Inscricao;
   },
 
   /**
@@ -89,28 +114,29 @@ export const inscricoesService = {
 
     const snapshot = await getDocs(q);
     const docs = snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as Inscricao,
+      (doc) => {
+        // Never trust embedded/legacy `curso` snapshots from enrollment docs.
+        // We only attach live course data to avoid showing stale/fake records.
+        const raw = doc.data() as Inscricao & { curso?: unknown };
+        const safeData = { ...raw };
+        delete safeData.curso;
+        return { id: doc.id, ...safeData } as Inscricao;
+      },
     );
 
     // Fetch course details for each enrollment
     const docsWithCourses = await Promise.all(
       docs.map(async (inscricao) => {
         try {
-          const courseDocRef = doc(db, COLLECTIONS.CURSOS, inscricao.cursoId);
-          const courseSnap = await getDoc(courseDocRef);
-          if (courseSnap.exists()) {
-            const courseData = courseSnap.data();
-            inscricao.curso = {
-              id: courseSnap.id,
-              titulo: courseData.titulo,
-              thumbnailUrl: courseData.thumbnailUrl,
-              totalModulos: courseData.totalModulos,
-              categoria: courseData.categoria,
-              cargaHoraria: courseData.cargaHoraria,
-            };
+          const summary = await getCourseSummary(inscricao.cursoId);
+          if (summary) {
+            inscricao.curso = summary;
+          } else {
+            delete inscricao.curso;
           }
         } catch (error) {
           console.error('Error fetching course for enrollment:', error);
+          delete inscricao.curso;
         }
         return inscricao;
       }),
@@ -303,6 +329,19 @@ export const inscricoesService = {
       totalQuestoes: totalQuestions,
       totalAcertos: score,
     };
+  },
+
+  /**
+   * Update only last access metadata (candidate)
+   */
+  async touchLastAccess(id: string, moduloId: string): Promise<void> {
+    const docRef = doc(db, COLLECTIONS.INSCRICOES, id);
+    await updateDoc(docRef, {
+      lastAccessedModule: moduloId,
+      ultimoModuloAcessado: moduloId,
+      ultimoAcesso: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   },
 
   /**

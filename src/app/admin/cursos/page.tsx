@@ -53,7 +53,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cursosService } from '@/lib/api/services/cursos.service';
-import { Curso, CursoNivel, CursoCategoria } from '@/lib/api/types';
+import { Curso, CursoNivel } from '@/lib/api/types';
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
@@ -176,7 +176,26 @@ export default function AdminCursosPage() {
     }
   }
 
+  function getPublishBlockReason(course: Curso): string | null {
+    const isPublished = (course.status || 'draft') === 'published';
+    if (isPublished) return null;
+    if (!course.thumbnailUrl)
+      return 'Adicione uma capa para publicar este curso.';
+    if ((course.totalModulos || 0) <= 0)
+      return 'Adicione pelo menos uma aula para publicar.';
+    return null;
+  }
+
   function handlePublishClick(course: Curso) {
+    const reason = getPublishBlockReason(course);
+    if (reason) {
+      toast({
+        title: 'Curso ainda não pode ser publicado',
+        description: reason,
+        variant: 'destructive',
+      });
+      return;
+    }
     setCourseToToggle(course);
     setPublishDialogOpen(true);
   }
@@ -505,6 +524,7 @@ export default function AdminCursosPage() {
                   const status =
                     statusConfig[courseStatus] || statusConfig.draft;
                   const enrollments = course.totalInscritos || 0;
+                  const publishBlockReason = getPublishBlockReason(course);
 
                   return (
                     <TableRow key={course.id}>
@@ -536,6 +556,11 @@ export default function AdminCursosPage() {
                             <p className='text-xs text-muted-foreground mt-0.5'>
                               Criado em {formatDate(course.createdAt)}
                             </p>
+                            {publishBlockReason ? (
+                              <p className='text-[11px] text-amber-700 mt-1'>
+                                {publishBlockReason}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       </TableCell>
@@ -569,7 +594,7 @@ export default function AdminCursosPage() {
                       <TableCell>
                         <div className='flex items-center gap-2 text-sm text-muted-foreground'>
                           <Clock className='h-4 w-4' />
-                          {course.cargaHoraria} min
+                          {course.cargaHoraria}h
                         </div>
                       </TableCell>
 

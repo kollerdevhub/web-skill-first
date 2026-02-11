@@ -23,6 +23,7 @@ export default function PublicCoursesPage() {
     q: search || undefined,
     page: 1,
     limit: 24,
+    publishedOnly: true,
   });
 
   return (

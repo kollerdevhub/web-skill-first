@@ -8,15 +8,24 @@ import {
   useCurso,
   useInscricao,
   useMinhasInscricoes,
+  useTouchInscricaoAccess,
   useUpdateProgress,
 } from '@/hooks';
 import { useResumeSkillsUpdater } from '@/hooks/useResumeSkillsUpdater';
 import { type Modulo, modulosService } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import {
   AlertCircle,
   ArrowLeft,
@@ -31,10 +40,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
 function splitSectionAndLessonTitle(title: string) {
   const parts = title.split('::').map((p) => p.trim());
   if (parts.length >= 2 && parts[0]) {
@@ -42,10 +47,6 @@ function splitSectionAndLessonTitle(title: string) {
   }
   return { section: 'Geral', lesson: title };
 }
-
-// ============================================================================
-// Page
-// ============================================================================
 
 export default function CourseDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -57,8 +58,8 @@ export default function CourseDetailsPage() {
     null,
   );
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastTouchedAccessRef = useRef<string | null>(null);
 
-  // ------ data fetching ------
   const {
     data: course,
     isLoading: loadingCourse,
@@ -66,6 +67,7 @@ export default function CourseDetailsPage() {
   } = useCurso(courseId);
   const { data: inscricoes } = useMinhasInscricoes();
   const updateProgressMutation = useUpdateProgress();
+  const { mutate: touchInscricaoAccess } = useTouchInscricaoAccess();
   const {
     status: skillsStatus,
     progress: skillsProgress,
@@ -86,7 +88,6 @@ export default function CourseDetailsPage() {
 
   const { data: inscricaoDetalhada } = useInscricao(inscricaoAtual?.id || '');
 
-  // ------ derived data ------
   const sortedModules = useMemo(
     () => [...(modulos || [])].sort((a, b) => a.ordem - b.ordem),
     [modulos],
@@ -120,7 +121,6 @@ export default function CourseDetailsPage() {
     return groups;
   }, [sortedModules]);
 
-  // ------ selection ------
   useEffect(() => {
     if (sortedModules.length === 0) {
       setSelectedModuleId(null);
@@ -149,6 +149,17 @@ export default function CourseDetailsPage() {
     [selectedModuleId, sortedModules],
   );
 
+  useEffect(() => {
+    if (!inscricaoAtual?.id || !selectedModule?.id) return;
+    const accessKey = `${inscricaoAtual.id}:${selectedModule.id}`;
+    if (lastTouchedAccessRef.current === accessKey) return;
+    lastTouchedAccessRef.current = accessKey;
+    touchInscricaoAccess({
+      id: inscricaoAtual.id,
+      moduloId: selectedModule.id,
+    });
+  }, [inscricaoAtual?.id, selectedModule?.id, touchInscricaoAccess]);
+
   const completedModuleIds = useMemo(() => {
     const progressList = inscricaoDetalhada?.modulosProgresso || [];
     return new Set(
@@ -169,8 +180,12 @@ export default function CourseDetailsPage() {
     : -1;
   const isFirstLesson = selectedIndex <= 0;
   const isLastLesson = selectedIndex >= sortedModules.length - 1;
+  const selectedLessonNumber = selectedIndex >= 0 ? selectedIndex + 1 : 0;
+  const totalLessons = sortedModules.length;
+  const completedLessons = completedModuleIds.size;
+  const remainingLessons = Math.max(totalLessons - completedLessons, 0);
+  const progressRounded = Math.round(progressPercent);
 
-  // ------ actions ------
   async function handleMarkAsCompleted(modulo: Modulo) {
     if (!inscricaoAtual) {
       setProgressError('Você precisa estar inscrito para registrar progresso.');
@@ -192,7 +207,6 @@ export default function CourseDetailsPage() {
       });
       setProgressMessage('Progresso atualizado com sucesso!');
 
-      // Check if course is now fully completed
       const newCompletedCount = (result.modulosProgresso || []).filter(
         (m) => m.concluido,
       ).length;
@@ -201,7 +215,6 @@ export default function CourseDetailsPage() {
         totalModules > 0 && newCompletedCount >= totalModules;
 
       if (isNowCompleted && course) {
-        // Trigger WebLLM skills analysis
         const moduleNames = sortedModules.map((m) => m.titulo);
         updateSkillsFromCourse(
           inscricaoAtual.candidatoId,
@@ -231,7 +244,6 @@ export default function CourseDetailsPage() {
     }
   }
 
-  // ------ loading / error states ------
   if (loadingCourse) {
     return (
       <div className='flex items-center justify-center h-[45vh]'>
@@ -259,206 +271,326 @@ export default function CourseDetailsPage() {
     );
   }
 
-  // ------ main render ------
   return (
     <div className='space-y-6 pb-10'>
-      {/* Header */}
-      <div className='flex items-center gap-3'>
-        <Link href='/dashboard/cursos'>
-          <Button variant='ghost' size='sm'>
-            <ArrowLeft className='h-4 w-4 mr-1' />
-            Cursos
-          </Button>
-        </Link>
-        <div>
-          <h1 className='text-2xl font-bold text-foreground'>
-            {course.titulo}
-          </h1>
-          <div className='flex gap-2 mt-0.5'>
-            <Badge variant='secondary'>{course.categoria}</Badge>
-            <Badge variant='outline'>
-              <Clock className='h-3 w-3 mr-1' />
-              {course.cargaHoraria}h
-            </Badge>
-          </div>
-        </div>
-      </div>
+      <Card className='overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-primary/5 shadow-sm'>
+        <CardHeader className='space-y-5'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <Link href='/dashboard/cursos'>
+              <Button variant='outline' size='sm'>
+                <ArrowLeft className='h-4 w-4 mr-1.5' />
+                Voltar para cursos
+              </Button>
+            </Link>
 
-      {/* Messages */}
-      {progressError && (
-        <div className='rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive'>
-          {progressError}
-        </div>
-      )}
-      {progressMessage && (
-        <div className='rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700'>
-          {progressMessage}
-        </div>
-      )}
-      {skillsStatus !== 'idle' && (
-        <div
-          className={`rounded-lg border p-3 text-sm flex items-center gap-2 ${
-            skillsStatus === 'done'
-              ? 'border-purple-200 bg-purple-50 text-purple-700'
-              : skillsStatus === 'error'
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : 'border-blue-200 bg-blue-50 text-blue-700'
-          }`}
-        >
-          {skillsStatus === 'done' ? (
-            <Sparkles className='h-4 w-4 shrink-0' />
-          ) : skillsStatus === 'error' ? (
-            <AlertCircle className='h-4 w-4 shrink-0' />
-          ) : (
-            <Loader2 className='h-4 w-4 shrink-0 animate-spin' />
-          )}
-          {skillsProgress}
-        </div>
-      )}
-
-      {/* Two-Column Layout */}
-      <div className='grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6'>
-        {/* ========== LEFT: Video + Info + Navigation ========== */}
-        <div className='space-y-4'>
-          {/* Video Player */}
-          <div className='aspect-video bg-black rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5'>
-            {selectedModule?.tipoConteudo === 'video' &&
-            selectedModule.videoUrl ? (
-              <video
-                ref={videoRef}
-                key={selectedModule.id}
-                src={selectedModule.videoUrl}
-                controls
-                autoPlay
-                onEnded={() => {
-                  void handleMarkAsCompleted(selectedModule);
-                  goToNextModule();
-                }}
-                preload='metadata'
-                className='w-full h-full'
-              />
-            ) : selectedModule?.tipoConteudo === 'texto' &&
-              selectedModule.conteudoTexto ? (
-              <div className='w-full h-full overflow-auto p-8 bg-white'>
-                <div className='prose prose-slate max-w-none'>
-                  <h3>
-                    {splitSectionAndLessonTitle(selectedModule.titulo).lesson}
-                  </h3>
-                  <div className='whitespace-pre-wrap'>
-                    {selectedModule.conteudoTexto}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className='w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-neutral-800 to-neutral-900 text-neutral-400'>
-                <div className='w-16 h-16 rounded-full border-2 border-neutral-500 flex items-center justify-center mb-4'>
-                  <PlayCircle className='h-8 w-8' />
-                </div>
-                <p className='text-sm font-medium'>
-                  Nenhum vídeo disponível para esta aula
-                </p>
-              </div>
-            )}
+            <div className='flex flex-wrap items-center gap-2'>
+              <Badge variant='secondary' className='capitalize'>
+                {course.categoria}
+              </Badge>
+              <Badge variant='outline' className='capitalize'>
+                {course.nivel}
+              </Badge>
+              <Badge variant='outline'>
+                <Clock className='h-3.5 w-3.5 mr-1' />
+                {course.cargaHoraria}h
+              </Badge>
+            </div>
           </div>
 
-          {/* Lesson Info (minimal: duration + title) */}
-          {selectedModule && (
-            <div className='space-y-1 px-1'>
-              <div className='flex items-center gap-2 text-muted-foreground text-sm'>
-                <Clock className='h-3.5 w-3.5' />
-                <span>{selectedModule.duracaoEstimada || 0} min</span>
-              </div>
-              <h2 className='text-lg font-semibold text-foreground'>
-                {splitSectionAndLessonTitle(selectedModule.titulo).lesson}
-              </h2>
-              {selectedModule.descricao && (
-                <p className='text-sm text-muted-foreground mt-1'>
-                  {selectedModule.descricao}
-                </p>
-              )}
+          <div className='grid gap-4 lg:grid-cols-[1fr_280px] lg:items-end'>
+            <div className='space-y-2'>
+              <CardTitle className='text-2xl md:text-3xl'>
+                {course.titulo}
+              </CardTitle>
+              <CardDescription className='text-sm leading-relaxed'>
+                {course.descricao ||
+                  'Continue seu aprendizado no seu ritmo e acompanhe o progresso por aula.'}
+              </CardDescription>
             </div>
-          )}
 
-          {/* Navigation Row */}
-          {selectedModule && (
-            <div className='flex items-center justify-between border-t border-border pt-4 px-1'>
-              <Button
-                variant='ghost'
-                size='sm'
-                disabled={isFirstLesson}
-                onClick={goToPrevModule}
-                className='gap-1'
-              >
-                <ChevronLeft className='h-4 w-4' />
-                Anterior
-              </Button>
-
-              {inscricaoAtual && (
-                <Button
-                  onClick={() => void handleMarkAsCompleted(selectedModule)}
-                  disabled={
-                    hasCompletedSelected ||
-                    markingCompleteId === selectedModule.id
-                  }
-                  className={
-                    hasCompletedSelected
-                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200 shadow-none'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20'
-                  }
-                  size='sm'
-                >
-                  {markingCompleteId === selectedModule.id ? (
-                    <>
-                      <Loader2 className='h-4 w-4 animate-spin mr-1.5' />
-                      Salvando...
-                    </>
-                  ) : hasCompletedSelected ? (
-                    <>
-                      <CheckCircle2 className='h-4 w-4 mr-1.5' />
-                      Concluído
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className='h-4 w-4 mr-1.5' />
-                      Marcar como Concluído
-                    </>
-                  )}
-                </Button>
-              )}
-
-              <Button
-                variant='ghost'
-                size='sm'
-                disabled={isLastLesson}
-                onClick={goToNextModule}
-                className='gap-1'
-              >
-                {isLastLesson ? 'Fim' : 'Próxima'}
-                <ChevronRight className='h-4 w-4' />
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* ========== RIGHT: Sidebar ========== */}
-        <div className='space-y-4'>
-          {/* Progress Card */}
-          <Card className='overflow-hidden'>
-            <div className='bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 pb-3'>
-              <h3 className='font-bold text-foreground'>Progresso do Curso</h3>
-              <p className='text-xs text-muted-foreground'>
-                {completedModuleIds.size} de {sortedModules.length} aulas
-              </p>
-            </div>
-            <CardContent className='px-4 pb-4 pt-0 space-y-2'>
-              <div className='flex items-center justify-between'>
-                <Progress value={progressPercent} className='flex-1 h-2' />
-                <span className='text-sm font-bold text-primary ml-3'>
-                  {progressPercent}%
+            <div className='rounded-lg border border-border/70 bg-card p-4 space-y-2'>
+              <div className='flex items-center justify-between text-sm'>
+                <span className='font-medium text-muted-foreground'>
+                  Progresso
+                </span>
+                <span className='font-semibold text-primary'>
+                  {progressRounded}%
                 </span>
               </div>
+              <Progress value={progressPercent} className='h-2.5' />
+              <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                <span>{completedLessons} concluídas</span>
+                <span>{remainingLessons} restantes</span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {progressError && (
+        <Card className='border-destructive/30 bg-destructive/10 shadow-none'>
+          <CardContent className='p-4 flex items-start gap-2 text-sm text-destructive'>
+            <AlertCircle className='h-4 w-4 mt-0.5 shrink-0' />
+            {progressError}
+          </CardContent>
+        </Card>
+      )}
+
+      {progressMessage && (
+        <Card className='border-emerald-200 bg-emerald-50 shadow-none'>
+          <CardContent className='p-4 flex items-start gap-2 text-sm text-emerald-700'>
+            <CheckCircle2 className='h-4 w-4 mt-0.5 shrink-0' />
+            {progressMessage}
+          </CardContent>
+        </Card>
+      )}
+
+      {skillsStatus !== 'idle' && (
+        <Card
+          className={cn(
+            'shadow-none',
+            skillsStatus === 'done'
+              ? 'border-purple-200 bg-purple-50'
+              : skillsStatus === 'error'
+                ? 'border-red-200 bg-red-50'
+                : 'border-blue-200 bg-blue-50',
+          )}
+        >
+          <CardContent
+            className={cn(
+              'p-4 text-sm flex items-center gap-2',
+              skillsStatus === 'done'
+                ? 'text-purple-700'
+                : skillsStatus === 'error'
+                  ? 'text-red-700'
+                  : 'text-blue-700',
+            )}
+          >
+            {skillsStatus === 'done' ? (
+              <Sparkles className='h-4 w-4 shrink-0' />
+            ) : skillsStatus === 'error' ? (
+              <AlertCircle className='h-4 w-4 shrink-0' />
+            ) : (
+              <Loader2 className='h-4 w-4 shrink-0 animate-spin' />
+            )}
+            {skillsProgress}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className='grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]'>
+        <div className='space-y-5'>
+          <Card className='overflow-hidden border-border/70 shadow-sm'>
+            <CardContent className='p-0'>
+              <div className='aspect-video bg-black overflow-hidden'>
+                {selectedModule?.tipoConteudo === 'video' &&
+                selectedModule.videoUrl ? (
+                  <video
+                    ref={videoRef}
+                    key={selectedModule.id}
+                    src={selectedModule.videoUrl}
+                    controls
+                    autoPlay
+                    onEnded={() => {
+                      void handleMarkAsCompleted(selectedModule);
+                      goToNextModule();
+                    }}
+                    preload='metadata'
+                    className='w-full h-full'
+                  />
+                ) : selectedModule?.tipoConteudo === 'texto' &&
+                  selectedModule.conteudoTexto ? (
+                  <div className='w-full h-full overflow-auto p-8 bg-white'>
+                    <div className='prose prose-slate max-w-none'>
+                      <h3>
+                        {splitSectionAndLessonTitle(selectedModule.titulo).lesson}
+                      </h3>
+                      <div className='whitespace-pre-wrap'>
+                        {selectedModule.conteudoTexto}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className='w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-neutral-800 to-neutral-900 text-neutral-400'>
+                    <div className='w-16 h-16 rounded-full border-2 border-neutral-500 flex items-center justify-center mb-4'>
+                      <PlayCircle className='h-8 w-8' />
+                    </div>
+                    <p className='text-sm font-medium'>
+                      Nenhum vídeo disponível para esta aula
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {selectedModule && (
+                <div className='space-y-4 p-5'>
+                  <div className='flex flex-wrap items-start justify-between gap-3'>
+                    <div className='space-y-1.5'>
+                      <div className='flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>
+                        <span className='font-semibold uppercase tracking-wide'>
+                          Aula {selectedLessonNumber} de {totalLessons || 1}
+                        </span>
+                        <span className='text-muted-foreground/60'>•</span>
+                        <span>
+                          {splitSectionAndLessonTitle(selectedModule.titulo).section}
+                        </span>
+                      </div>
+
+                      <h2 className='text-xl font-semibold text-foreground'>
+                        {splitSectionAndLessonTitle(selectedModule.titulo).lesson}
+                      </h2>
+
+                      {selectedModule.descricao && (
+                        <p className='text-sm text-muted-foreground leading-relaxed'>
+                          {selectedModule.descricao}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <Badge variant='outline' className='capitalize'>
+                        {selectedModule.tipoConteudo}
+                      </Badge>
+                      <Badge variant='secondary'>
+                        <Clock className='h-3.5 w-3.5 mr-1.5' />
+                        {selectedModule.duracaoEstimada || 0} min
+                      </Badge>
+                      {hasCompletedSelected ? (
+                        <Badge className='bg-emerald-600 text-white hover:bg-emerald-600'>
+                          <CheckCircle2 className='h-3.5 w-3.5 mr-1.5' />
+                          Concluída
+                        </Badge>
+                      ) : (
+                        <Badge variant='outline'>Pendente</Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                    <div className='flex items-center gap-2'>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        disabled={isFirstLesson}
+                        onClick={goToPrevModule}
+                        className='gap-1'
+                      >
+                        <ChevronLeft className='h-4 w-4' />
+                        Anterior
+                      </Button>
+
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        disabled={isLastLesson}
+                        onClick={goToNextModule}
+                        className='gap-1'
+                      >
+                        {isLastLesson ? 'Fim da trilha' : 'Próxima'}
+                        <ChevronRight className='h-4 w-4' />
+                      </Button>
+                    </div>
+
+                    {inscricaoAtual && (
+                      <Button
+                        onClick={() => void handleMarkAsCompleted(selectedModule)}
+                        disabled={
+                          hasCompletedSelected ||
+                          markingCompleteId === selectedModule.id
+                        }
+                        className={cn(
+                          'min-w-[220px]',
+                          hasCompletedSelected
+                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200 shadow-none'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20',
+                        )}
+                        size='sm'
+                      >
+                        {markingCompleteId === selectedModule.id ? (
+                          <>
+                            <Loader2 className='h-4 w-4 animate-spin mr-1.5' />
+                            Salvando...
+                          </>
+                        ) : hasCompletedSelected ? (
+                          <>
+                            <CheckCircle2 className='h-4 w-4 mr-1.5' />
+                            Aula concluída
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className='h-4 w-4 mr-1.5' />
+                            Marcar aula como concluída
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className='space-y-4 xl:sticky xl:top-6 xl:self-start'>
+          <Card className='border-border/70 shadow-sm'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='text-base'>Resumo da jornada</CardTitle>
+              <CardDescription>
+                {completedLessons} de {totalLessons} aulas concluídas
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className='space-y-4'>
+              <div className='space-y-2'>
+                <div className='flex items-center justify-between text-sm'>
+                  <span className='text-muted-foreground'>Andamento geral</span>
+                  <span className='font-semibold text-primary'>
+                    {progressRounded}%
+                  </span>
+                </div>
+                <Progress value={progressPercent} className='h-2.5' />
+              </div>
+
+              <div className='grid grid-cols-3 gap-2'>
+                <div className='rounded-md border border-border/70 bg-muted/30 px-2 py-2 text-center'>
+                  <p className='text-[10px] uppercase tracking-wide text-muted-foreground'>
+                    Total
+                  </p>
+                  <p className='text-sm font-semibold'>{totalLessons}</p>
+                </div>
+                <div className='rounded-md border border-emerald-200 bg-emerald-50 px-2 py-2 text-center'>
+                  <p className='text-[10px] uppercase tracking-wide text-emerald-700/70'>
+                    Feitas
+                  </p>
+                  <p className='text-sm font-semibold text-emerald-700'>
+                    {completedLessons}
+                  </p>
+                </div>
+                <div className='rounded-md border border-amber-200 bg-amber-50 px-2 py-2 text-center'>
+                  <p className='text-[10px] uppercase tracking-wide text-amber-700/70'>
+                    Restam
+                  </p>
+                  <p className='text-sm font-semibold text-amber-700'>
+                    {remainingLessons}
+                  </p>
+                </div>
+              </div>
+
+              {selectedModule && (
+                <div className='rounded-md border border-border/70 bg-muted/20 px-3 py-2.5'>
+                  <p className='text-xs text-muted-foreground mb-1'>
+                    Aula atual
+                  </p>
+                  <p className='text-sm font-medium leading-snug'>
+                    {splitSectionAndLessonTitle(selectedModule.titulo).lesson}
+                  </p>
+                </div>
+              )}
+
               {progressPercent >= 100 && (
-                <div className='flex flex-col gap-3 mt-1'>
+                <div className='space-y-3'>
                   <div className='flex items-center gap-2 text-emerald-600 text-sm font-medium'>
                     <Trophy className='h-4 w-4' />
                     Curso concluído! 🎉
@@ -487,7 +619,6 @@ export default function CourseDetailsPage() {
                     </Link>
                   )}
 
-                  {/* Update Resume with AI */}
                   {inscricaoAtual && course && (
                     <Button
                       size='sm'
@@ -537,8 +668,14 @@ export default function CourseDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Module List */}
-          <Card className='overflow-hidden'>
+          <Card className='overflow-hidden border-border/70 shadow-sm'>
+            <CardHeader className='pb-3'>
+              <CardTitle className='text-base'>Trilha de aulas</CardTitle>
+              <CardDescription>
+                Escolha uma aula para continuar o curso.
+              </CardDescription>
+            </CardHeader>
+            <Separator />
             <CardContent className='p-0'>
               {loadingModules ? (
                 <div className='flex items-center gap-2 text-muted-foreground text-sm p-4'>
@@ -553,11 +690,10 @@ export default function CourseDetailsPage() {
                   </p>
                 </div>
               ) : (
-                <ScrollArea className='max-h-[55vh]'>
+                <ScrollArea className='max-h-[60vh]'>
                   <div className='divide-y divide-border'>
                     {groupedModules.map((group, gIdx) => (
                       <div key={group.section}>
-                        {/* Section Header */}
                         <div className='px-4 py-2.5 bg-muted/40 border-b border-border'>
                           <p className='text-[10px] font-bold text-muted-foreground uppercase tracking-widest'>
                             MÓDULO {gIdx + 1}
@@ -567,7 +703,6 @@ export default function CourseDetailsPage() {
                           </p>
                         </div>
 
-                        {/* Lessons */}
                         <div>
                           {group.lessons.map((modulo) => {
                             const isSelected = modulo.id === selectedModule?.id;
@@ -583,26 +718,22 @@ export default function CourseDetailsPage() {
                                 key={modulo.id}
                                 type='button'
                                 onClick={() => setSelectedModuleId(modulo.id)}
-                                className={`w-full text-left flex items-center gap-3 px-4 py-3 text-sm transition-all relative ${
+                                className={cn(
+                                  'w-full text-left flex items-start gap-3 px-4 py-3 text-sm transition-colors relative border-l-2',
                                   isSelected
-                                    ? 'bg-primary/5'
-                                    : 'hover:bg-muted/50'
-                                }`}
-                              >
-                                {/* Active indicator bar */}
-                                {isSelected && (
-                                  <div className='absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-primary' />
+                                    ? 'bg-primary/5 border-l-primary'
+                                    : 'hover:bg-muted/50 border-l-transparent',
                                 )}
-
-                                {/* Status circle */}
+                              >
                                 <div
-                                  className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                                  className={cn(
+                                    'mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors',
                                     isCompleted
                                       ? 'bg-emerald-500 text-white'
                                       : isSelected
                                         ? 'bg-primary text-primary-foreground'
-                                        : 'bg-muted text-muted-foreground'
-                                  }`}
+                                        : 'bg-muted text-muted-foreground',
+                                  )}
                                 >
                                   {isCompleted ? (
                                     <CheckCircle2 className='h-3.5 w-3.5' />
@@ -613,22 +744,29 @@ export default function CourseDetailsPage() {
                                   )}
                                 </div>
 
-                                {/* Label */}
                                 <div className='flex-1 min-w-0'>
                                   <p
-                                    className={`font-medium leading-snug truncate ${
+                                    className={cn(
+                                      'font-medium leading-snug',
                                       isCompleted
                                         ? 'text-muted-foreground line-through'
                                         : isSelected
                                           ? 'text-primary'
-                                          : 'text-foreground'
-                                    }`}
+                                          : 'text-foreground',
+                                    )}
                                   >
                                     {lessonTitle}
                                   </p>
-                                  <span className='text-[11px] text-muted-foreground'>
-                                    {modulo.duracaoEstimada || 0} min
-                                  </span>
+                                  <div className='mt-0.5 flex items-center justify-between gap-2'>
+                                    <span className='text-[11px] text-muted-foreground'>
+                                      {modulo.duracaoEstimada || 0} min
+                                    </span>
+                                    {isSelected && (
+                                      <span className='text-[10px] font-semibold uppercase tracking-wide text-primary'>
+                                        Atual
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </button>
                             );

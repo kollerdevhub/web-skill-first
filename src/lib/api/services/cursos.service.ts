@@ -13,8 +13,6 @@ import {
   where,
   orderBy,
   limit,
-  startAfter,
-  serverTimestamp,
   getCountFromServer,
 } from 'firebase/firestore';
 import {
@@ -78,7 +76,7 @@ export const cursosService = {
     );
 
     // Client-side filtering for search term if needed
-    const filteredData =
+    let filteredData =
       params.q || params.keyword
         ? allData.filter((c) =>
             c.titulo
@@ -86,6 +84,12 @@ export const cursosService = {
               .includes((params.q || params.keyword || '').toLowerCase()),
           )
         : allData;
+
+    if (params.publishedOnly) {
+      filteredData = filteredData.filter(
+        (course) => course.status === 'published' || course.ativo,
+      );
+    }
 
     // Pagination (mocked for now, just slicing array)
     // Real firestore pagination uses startAfter
@@ -163,10 +167,32 @@ export const cursosService = {
    */
   async publish(id: string): Promise<void> {
     const docRef = doc(db, COLLECTIONS.CURSOS, id);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) {
+      throw new Error('Curso não encontrado');
+    }
+
+    const course = snapshot.data() as Curso;
+    if (!course.thumbnailUrl) {
+      throw new Error('Adicione uma capa antes de publicar o curso');
+    }
+
+    const modulesCountQuery = query(
+      collection(db, COLLECTIONS.MODULOS),
+      where('cursoId', '==', id),
+    );
+    const modulesCountSnapshot = await getCountFromServer(modulesCountQuery);
+    const totalModulos = modulesCountSnapshot.data().count;
+
+    if (totalModulos <= 0) {
+      throw new Error('Adicione pelo menos uma aula antes de publicar o curso');
+    }
+
     await updateDoc(docRef, {
       ativo: true,
       status: 'published',
       dataPublicacao: new Date().toISOString(),
+      totalModulos,
     });
   },
 
@@ -207,14 +233,14 @@ export const cursosService = {
   /**
    * Get detailed course report (admin/gestor)
    */
-  async getReport(id: string): Promise<unknown> {
+  async getReport(): Promise<unknown> {
     return {}; // Placeholder
   },
 
   /**
    * Get completion report by module (admin/gestor)
    */
-  async getConclusionReport(id: string): Promise<unknown> {
+  async getConclusionReport(): Promise<unknown> {
     return []; // Placeholder
   },
 };

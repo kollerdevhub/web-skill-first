@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { VideoUploader } from '@/components/admin/VideoUploader';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,7 +29,6 @@ import {
   ArrowLeft,
   BookOpen,
   Clock,
-  Eye,
   FileText,
   GripVertical,
   Image as ImageIcon,
@@ -41,7 +40,6 @@ import {
   Save,
   Trash2,
   Upload,
-  Video,
 } from 'lucide-react';
 import { cursosService } from '@/lib/api/services/cursos.service';
 import { modulosService } from '@/lib/api/services/modulos.service';
@@ -55,7 +53,6 @@ import {
 } from '@/lib/api/types';
 import { CoursePreview } from '@/components/admin/CoursePreview';
 import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 // ============================================================================
 // Helpers
@@ -69,6 +66,16 @@ const levelLabel: Record<CursoNivel | string, string> = {
   intermediate: 'Intermediário',
   advanced: 'Avançado',
 };
+
+function minutesToHours(minutes: number): number {
+  if (minutes <= 0) return 0;
+  return Number((minutes / 60).toFixed(1));
+}
+
+function sanitizeDurationMinutes(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
+}
 
 function splitSectionAndLessonTitle(title: string) {
   const parts = title.split('::').map((p) => p.trim());
@@ -100,7 +107,6 @@ export default function AdminCourseDetailsPage() {
     descricao: string;
     categoria: string;
     nivel: string;
-    cargaHoraria: number;
   } | null>(null);
 
   // -- Image --
@@ -152,6 +158,12 @@ export default function AdminCourseDetailsPage() {
       try {
         const list = await modulosService.list(params.id);
         setModules(list);
+        const recalculatedHours = minutesToHours(
+          list.reduce((sum, lesson) => sum + (lesson.duracaoEstimada || 0), 0),
+        );
+        setCourse((prev) =>
+          prev ? { ...prev, cargaHoraria: recalculatedHours } : null,
+        );
       } catch {
         toast({
           title: 'Erro',
@@ -168,6 +180,19 @@ export default function AdminCourseDetailsPage() {
   const sortedModules = useMemo(
     () => [...modules].sort((a, b) => a.ordem - b.ordem),
     [modules],
+  );
+  const totalLessons = sortedModules.length;
+  const totalLessonMinutes = useMemo(
+    () =>
+      sortedModules.reduce(
+        (sum, lesson) => sum + (lesson.duracaoEstimada || 0),
+        0,
+      ),
+    [sortedModules],
+  );
+  const calculatedCourseHours = useMemo(
+    () => minutesToHours(totalLessonMinutes),
+    [totalLessonMinutes],
   );
 
   const groupedModules = useMemo(() => {
@@ -207,8 +232,6 @@ export default function AdminCourseDetailsPage() {
     return Array.from(sections);
   }, [modules]);
 
-  const totalLessons = sortedModules.length;
-
   useEffect(() => {
     fetchCourse();
   }, [fetchCourse]);
@@ -220,7 +243,6 @@ export default function AdminCourseDetailsPage() {
       descricao: course.descricao,
       categoria: course.categoria,
       nivel: course.nivel,
-      cargaHoraria: course.cargaHoraria,
     });
   }, [course]);
 
@@ -256,7 +278,7 @@ export default function AdminCourseDetailsPage() {
         ...courseDraft,
         nivel: courseDraft.nivel as CursoNivel,
         categoria: courseDraft.categoria as CursoCategoria,
-        cargaHoraria: Number(courseDraft.cargaHoraria) || 1,
+        cargaHoraria: calculatedCourseHours,
       });
       setCourse(updated);
       setEditingCourse(false);
@@ -322,13 +344,13 @@ export default function AdminCourseDetailsPage() {
 
     setCreatingModule(true);
     try {
+      const sanitizedDuration = sanitizeDurationMinutes(lessonForm.duration);
       const payload: CreateModuloDTO = {
         titulo: `${lessonForm.sectionTitle.trim()} :: ${lessonForm.title.trim()}`,
         descricao: lessonForm.description.trim() || undefined,
         ordem: sortedModules.length + 1,
         tipoConteudo: lessonForm.contentType,
-        duracaoEstimada:
-          lessonForm.duration > 0 ? lessonForm.duration : undefined,
+        duracaoEstimada: sanitizedDuration > 0 ? sanitizedDuration : undefined,
         obrigatorio: true,
         ...(lessonForm.contentType === 'texto' && lessonForm.textContent
           ? { conteudoTexto: lessonForm.textContent }
@@ -365,7 +387,7 @@ export default function AdminCourseDetailsPage() {
     setDeletingModuleId(mod.id);
     try {
       await modulosService.delete(course.id, mod.id);
-      setModules((prev) => prev.filter((m) => m.id !== mod.id));
+      await fetchModules({ silent: true });
       toast({ title: 'Aula removida.' });
     } catch (err) {
       toast({
@@ -588,19 +610,19 @@ export default function AdminCourseDetailsPage() {
                     </div>
                   </div>
                   <div className='space-y-2'>
-                    <Label htmlFor='cargaHoraria'>Carga Horária (horas)</Label>
+                    <Label htmlFor='cargaHoraria'>
+                      Carga Horária (calculada)
+                    </Label>
                     <Input
                       id='cargaHoraria'
                       type='number'
-                      value={courseDraft.cargaHoraria}
-                      onChange={(e) =>
-                        setCourseDraft({
-                          ...courseDraft,
-                          cargaHoraria: Number(e.target.value) || 0,
-                        })
-                      }
-                      className='w-32'
+                      value={calculatedCourseHours}
+                      readOnly
+                      className='w-32 bg-muted/40'
                     />
+                    <p className='text-xs text-muted-foreground'>
+                      {totalLessonMinutes} min somados das aulas
+                    </p>
                   </div>
                   <div className='flex gap-2 pt-2'>
                     <Button onClick={handleSaveCourse} disabled={savingCourse}>
@@ -656,7 +678,8 @@ export default function AdminCourseDetailsPage() {
                     Módulos e Aulas
                   </h2>
                   <p className='text-sm text-muted-foreground'>
-                    {groupedModules.length} módulo(s) • {totalLessons} aula(s)
+                    {groupedModules.length} módulo(s) • {totalLessons} aula(s) •{' '}
+                    {totalLessonMinutes} min ({calculatedCourseHours}h)
                   </p>
                 </div>
                 <div className='flex gap-2'>
@@ -690,7 +713,7 @@ export default function AdminCourseDetailsPage() {
                     Nenhuma aula criada ainda
                   </p>
                   <p className='text-sm text-muted-foreground/70 mb-4'>
-                    Clique em "Adicionar Aula" para começar
+                    Clique em &quot;Adicionar Aula&quot; para começar
                   </p>
                   <Button size='sm' onClick={() => handleOpenLessonDialog()}>
                     <Plus className='h-3.5 w-3.5 mr-1.5' />
@@ -930,7 +953,9 @@ export default function AdminCourseDetailsPage() {
                   onChange={(e) =>
                     setLessonForm((f) => ({
                       ...f,
-                      duration: Number(e.target.value) || 0,
+                      duration: sanitizeDurationMinutes(
+                        Number(e.target.value) || 0,
+                      ),
                     }))
                   }
                 />

@@ -23,7 +23,7 @@ export const courseSchema = z.object({
   }),
   cargaHoraria: z
     .number({ message: 'Informe a carga horária' })
-    .min(1, 'A carga horária deve ser pelo menos 1 hora'),
+    .min(0, 'A carga horária não pode ser negativa'),
   slug: z.string().optional(),
   language: z.string().optional(),
   tags: z.array(z.string()).optional(),

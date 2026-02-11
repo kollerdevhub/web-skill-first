@@ -2,14 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inscricoesService } from '@/lib/api';
-import type { UpdateProgressoDTO, SubmitQuizDTO } from '@/lib/api';
+import type { Inscricao, UpdateProgressoDTO, SubmitQuizDTO } from '@/lib/api';
 import { cursosKeys } from './useCursos';
 import { useFirebaseAuth } from './useFirebaseAuth';
 
 // Query keys
 export const inscricoesKeys = {
   all: ['inscricoes'] as const,
-  minhas: () => [...inscricoesKeys.all, 'minhas'] as const,
+  minhas: (userId?: string | null) =>
+    [...inscricoesKeys.all, 'minhas', userId || 'anonymous'] as const,
   detail: (id: string) => [...inscricoesKeys.all, 'detail', id] as const,
 };
 
@@ -17,12 +18,13 @@ export const inscricoesKeys = {
  * Hook to get my enrollments
  */
 export function useMinhasInscricoes() {
-  const { user, isAuthenticated } = useFirebaseAuth();
+  const { user, isAuthenticated, loading } = useFirebaseAuth();
   return useQuery({
-    queryKey: inscricoesKeys.minhas(),
+    queryKey: inscricoesKeys.minhas(user?.uid),
     queryFn: () => inscricoesService.getMinhas(user?.uid),
     staleTime: 2 * 60 * 1000,
-    enabled: isAuthenticated && !!user?.uid,
+    enabled: !loading && isAuthenticated && !!user?.uid,
+    refetchOnMount: 'always',
   });
 }
 
@@ -47,9 +49,21 @@ export function useEnroll() {
   return useMutation({
     mutationFn: (cursoId: string) =>
       inscricoesService.enroll(cursoId, user?.uid),
-    onSuccess: (_, cursoId) => {
-      queryClient.invalidateQueries({ queryKey: inscricoesKeys.minhas() });
+    onSuccess: (inscricao, cursoId) => {
+      if (user?.uid) {
+        queryClient.setQueryData<Inscricao[]>(
+          inscricoesKeys.minhas(user.uid),
+          (current) => {
+            if (!current) return [inscricao];
+            const alreadyExists = current.some((item) => item.id === inscricao.id);
+            if (alreadyExists) return current;
+            return [inscricao, ...current];
+          },
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: inscricoesKeys.all });
       queryClient.invalidateQueries({ queryKey: cursosKeys.detail(cursoId) });
+      queryClient.invalidateQueries({ queryKey: cursosKeys.all });
     },
   });
 }
@@ -67,7 +81,7 @@ export function useUpdateProgress() {
       queryClient.invalidateQueries({
         queryKey: inscricoesKeys.detail(data.id),
       });
-      queryClient.invalidateQueries({ queryKey: inscricoesKeys.minhas() });
+      queryClient.invalidateQueries({ queryKey: inscricoesKeys.all });
     },
   });
 }
@@ -85,7 +99,22 @@ export function useSubmitQuiz() {
       queryClient.invalidateQueries({
         queryKey: inscricoesKeys.detail(variables.id),
       });
-      queryClient.invalidateQueries({ queryKey: inscricoesKeys.minhas() });
+      queryClient.invalidateQueries({ queryKey: inscricoesKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook to persist last accessed lesson
+ */
+export function useTouchInscricaoAccess() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, moduloId }: { id: string; moduloId: string }) =>
+      inscricoesService.touchLastAccess(id, moduloId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inscricoesKeys.all });
     },
   });
 }

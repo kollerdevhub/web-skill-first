@@ -4,15 +4,24 @@ import { useFirebaseAuth } from './useFirebaseAuth';
 import { signOutUser } from '@/lib/firebase-auth';
 import { useRouter } from 'next/navigation';
 
+import { useQuery } from '@tanstack/react-query';
+import { authService } from '@/lib/api';
+
 /**
  * Hook to get current authenticated user
  * Maintains compatibility with previous useQuery structure where possible
  */
-export function useMe() {
+export function useAuth() {
   const { user, loading, isAdmin, isAuthenticated } = useFirebaseAuth();
 
   return {
-    data: user ? { ...user, role: isAdmin ? 'admin' : 'candidate' } : null,
+    user: user
+      ? {
+          ...user,
+          id: user.uid,
+          role: (isAdmin ? 'admin' : 'candidato') as 'admin' | 'candidato',
+        }
+      : null,
     isLoading: loading,
     isAuthenticated,
     isAdmin,
@@ -45,4 +54,18 @@ export function useConsent() {
     },
     isLoading: false,
   };
+}
+
+/**
+ * Hook to fetch current user data from backend
+ */
+export function useMe() {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['me'],
+    queryFn: () => authService.getMe(),
+    enabled: isAuthenticated,
+    retry: false,
+  });
 }
