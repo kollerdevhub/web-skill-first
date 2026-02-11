@@ -1,10 +1,32 @@
-import NextAuth, { User } from 'next-auth';
+import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { initAdmin } from '@/lib/firebase-admin';
 
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+const googleClientId =
+  process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret =
+  process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+
+if (!googleClientId || !googleClientSecret) {
+  console.error(
+    '[auth] Missing Google OAuth env vars. Configure AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET (or GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET).',
+  );
+}
+
+if (!authSecret && process.env.NODE_ENV === 'production') {
+  console.error(
+    '[auth] Missing secret. Configure AUTH_SECRET (or NEXTAUTH_SECRET) in production.',
+  );
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: authSecret,
+  trustHost: true,
   providers: [
     Google({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
       authorization: {
         params: {
           prompt: 'consent',
