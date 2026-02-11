@@ -34,13 +34,13 @@ export const certificadosService = {
   /**
    * Get my certificates (candidate)
    */
-  async getMeus(): Promise<Certificado[]> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async getMeus(userId?: string): Promise<Certificado[]> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
     const q = query(
       collection(db, COLLECTIONS.CERTIFICADOS),
-      where('candidatoId', '==', user.uid),
+      where('candidatoId', '==', uid),
     );
 
     const snapshot = await getDocs(q);

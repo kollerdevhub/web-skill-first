@@ -30,15 +30,15 @@ export const inscricoesService = {
   /**
    * Enroll in a course (candidate)
    */
-  async enroll(cursoId: string): Promise<Inscricao> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async enroll(cursoId: string, userId?: string): Promise<Inscricao> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
     // Check existing enrollment
     const q = query(
       collection(db, COLLECTIONS.INSCRICOES),
       where('cursoId', '==', cursoId),
-      where('candidatoId', '==', user.uid),
+      where('candidatoId', '==', uid),
     );
     const existing = await getDocs(q);
     if (!existing.empty) {
@@ -52,7 +52,7 @@ export const inscricoesService = {
     const newEnrollmentRef = doc(collection(db, COLLECTIONS.INSCRICOES));
 
     const enrollmentData = {
-      candidatoId: user.uid,
+      candidatoId: uid,
       cursoId,
       status: 'em_andamento',
       progress: 0,
@@ -78,13 +78,13 @@ export const inscricoesService = {
   /**
    * Get my enrollments (candidate)
    */
-  async getMinhas(): Promise<Inscricao[]> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async getMinhas(userId?: string): Promise<Inscricao[]> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
     const q = query(
       collection(db, COLLECTIONS.INSCRICOES),
-      where('candidatoId', '==', user.uid),
+      where('candidatoId', '==', uid),
     );
 
     const snapshot = await getDocs(q);

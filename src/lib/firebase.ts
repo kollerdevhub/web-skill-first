@@ -11,16 +11,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debug: Check if config is loaded (do not log actual values in prod)
-if (typeof window !== 'undefined') {
-  console.log('Firebase Config Loading Status:', {
-    hasApiKey: !!firebaseConfig.apiKey,
-    hasAuthDomain: !!firebaseConfig.authDomain,
-    hasProjectId: !!firebaseConfig.projectId,
-    appId: firebaseConfig.appId,
-  });
-}
-
 let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;

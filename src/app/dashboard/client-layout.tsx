@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -18,33 +18,32 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
-import { signOutUser } from '@/lib/firebase-auth';
+import { signOut } from 'next-auth/react';
 
-interface MobileLayoutProps {
-  children: React.ReactNode;
-}
-
-const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Meus Cursos', href: '/dashboard/cursos', icon: GraduationCap },
-  { label: 'Vagas', href: '/dashboard/vagas', icon: Briefcase },
-  { label: 'Candidaturas', href: '/dashboard/candidaturas', icon: FileText },
-  { label: 'Certificados', href: '/dashboard/certificados', icon: Award },
-  { label: 'Perfil', href: '/dashboard/perfil', icon: User },
-];
-
-export default function DashboardClientLayout({ children }: MobileLayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const pathname = usePathname();
+export default function ClientLayout({ children }: { children: ReactNode }) {
   const { user } = useFirebaseAuth();
-  const router = useRouter();
+  const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
 
+  const navItems = [
+    { label: 'Início', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Cursos', href: '/dashboard/cursos', icon: GraduationCap },
+    { label: 'Explorar', href: '/dashboard/explorar-cursos', icon: Sparkles },
+    { label: 'Certificados', href: '/dashboard/certificados', icon: Award },
+    {
+      label: 'Minhas Candidaturas',
+      href: '/dashboard/candidaturas',
+      icon: FileText,
+    },
+    { label: 'Vagas', href: '/dashboard/vagas', icon: Briefcase },
+    { label: 'Perfil', href: '/dashboard/perfil', icon: User },
+  ];
+
   const handleLogout = async () => {
-    await signOutUser();
-    router.push('/');
+    await signOut({ callbackUrl: '/' });
   };
 
   return (

@@ -26,15 +26,15 @@ export const candidaturasService = {
   /**
    * Apply to a job (candidate)
    */
-  async apply(vagaId: string): Promise<Candidatura> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async apply(vagaId: string, userId?: string): Promise<Candidatura> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
     // Check if already applied
     const q = query(
       collection(db, COLLECTIONS.CANDIDATURAS),
       where('vagaId', '==', vagaId),
-      where('candidatoId', '==', user.uid),
+      where('candidatoId', '==', uid),
     );
     const existing = await getDocs(q);
     if (!existing.empty) {
@@ -46,7 +46,7 @@ export const candidaturasService = {
 
     const docRef = await addDoc(collection(db, COLLECTIONS.CANDIDATURAS), {
       vagaId,
-      candidatoId: user.uid,
+      candidatoId: uid,
       status: 'pendente',
       dataInscricao: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -61,13 +61,13 @@ export const candidaturasService = {
   /**
    * Get my applications (candidate)
    */
-  async getMinhas(): Promise<Candidatura[]> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async getMinhas(userId?: string): Promise<Candidatura[]> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
     const q = query(
       collection(db, COLLECTIONS.CANDIDATURAS),
-      where('candidatoId', '==', user.uid),
+      where('candidatoId', '==', uid),
     );
 
     const snapshot = await getDocs(q);

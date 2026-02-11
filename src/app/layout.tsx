@@ -23,12 +23,12 @@ export default function RootLayout({
   return (
     <html lang='pt-BR'>
       <body className={`${inter.variable} antialiased min-h-screen`}>
-        <AuthProvider>
-          <Providers>
+        <Providers>
+          <AuthProvider>
             {children}
             <Toaster />
-          </Providers>
-        </AuthProvider>
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

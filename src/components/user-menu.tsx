@@ -11,28 +11,28 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
-import { signOutUser } from '@/lib/firebase-auth';
-import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 
 export function UserMenu() {
+  const { user, isAdmin } = useFirebaseAuth();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { user, isAdmin } = useFirebaseAuth();
-  const router = useRouter();
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
-    }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleLogout = async () => {
-    await signOutUser();
-    router.push('/');
+    await signOut({ callbackUrl: '/' });
   };
 
   if (!user) return null;

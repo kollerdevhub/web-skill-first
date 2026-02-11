@@ -17,12 +17,12 @@ export const certificadosKeys = {
  * Hook to get my certificates
  */
 export function useMeusCertificados() {
-  const { isAuthenticated } = useFirebaseAuth();
+  const { user, isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: certificadosKeys.meus(),
-    queryFn: () => certificadosService.getMeus(),
+    queryFn: () => certificadosService.getMeus(user?.uid),
     staleTime: 5 * 60 * 1000,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user?.uid,
   });
 }
 

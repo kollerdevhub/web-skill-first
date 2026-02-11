@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { Sparkles, ArrowLeft, Loader2 } from 'lucide-react';
 
-import { signInWithGoogle } from '@/lib/firebase-auth';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
 
@@ -26,8 +26,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithGoogle();
-      // Redirection is handled by the useEffect above
+      await signIn('google', { callbackUrl: '/login' });
     } catch (error) {
       console.error('Login failed', error);
     }

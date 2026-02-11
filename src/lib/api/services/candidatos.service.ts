@@ -21,11 +21,11 @@ export const candidatosService = {
   /**
    * Get my profile (logged in candidate)
    */
-  async getMyProfile(): Promise<Candidato> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async getMyProfile(userId?: string): Promise<Candidato> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
-    const docRef = doc(db, COLLECTIONS.CANDIDATOS, user.uid);
+    const docRef = doc(db, COLLECTIONS.CANDIDATOS, uid);
     const snapshot = await getDoc(docRef);
 
     if (!snapshot.exists()) {
@@ -39,31 +39,37 @@ export const candidatosService = {
   /**
    * Create my profile
    */
-  async createProfile(data: CreateCandidatoDTO): Promise<Candidato> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async createProfile(
+    data: CreateCandidatoDTO,
+    userId?: string,
+  ): Promise<Candidato> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
-    const docRef = doc(db, COLLECTIONS.CANDIDATOS, user.uid);
+    const docRef = doc(db, COLLECTIONS.CANDIDATOS, uid);
     const candidatoData = {
       ...data,
-      userId: user.uid,
+      userId: uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     await setDoc(docRef, candidatoData);
 
-    return { id: user.uid, ...candidatoData } as Candidato;
+    return { id: uid, ...candidatoData } as Candidato;
   },
 
   /**
    * Update my profile
    */
-  async updateProfile(data: UpdateCandidatoDTO): Promise<Candidato> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async updateProfile(
+    data: UpdateCandidatoDTO,
+    userId?: string,
+  ): Promise<Candidato> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
-    const docRef = doc(db, COLLECTIONS.CANDIDATOS, user.uid);
+    const docRef = doc(db, COLLECTIONS.CANDIDATOS, uid);
     await updateDoc(docRef, {
       ...data,
       updatedAt: new Date().toISOString(),
@@ -76,16 +82,19 @@ export const candidatosService = {
   /**
    * Upload curriculum PDF (max 5MB)
    */
-  async uploadCurriculo(file: File): Promise<{ curriculoUrl: string }> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async uploadCurriculo(
+    file: File,
+    userId?: string,
+  ): Promise<{ curriculoUrl: string }> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
     const { url } = await uploadToCloudinary(file, {
       folder: 'web-skill-first/curriculos',
       resourceType: 'raw', // PDF implies raw or maybe auto
     });
 
-    const docRef = doc(db, COLLECTIONS.CANDIDATOS, user.uid);
+    const docRef = doc(db, COLLECTIONS.CANDIDATOS, uid);
     await updateDoc(docRef, { curriculoUrl: url });
 
     return { curriculoUrl: url };
@@ -94,11 +103,11 @@ export const candidatosService = {
   /**
    * Delete curriculum
    */
-  async deleteCurriculo(): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuario nao autenticado');
+  async deleteCurriculo(userId?: string): Promise<void> {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) throw new Error('Usuario nao autenticado');
 
-    const docRef = doc(db, COLLECTIONS.CANDIDATOS, user.uid);
+    const docRef = doc(db, COLLECTIONS.CANDIDATOS, uid);
     await updateDoc(docRef, { curriculoUrl: null });
   },
 

@@ -24,12 +24,12 @@ export const candidaturasKeys = {
  * Hook to get my applications (candidate)
  */
 export function useMinhasCandidaturas() {
-  const { isAuthenticated } = useFirebaseAuth();
+  const { user, isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: candidaturasKeys.minhas(),
-    queryFn: () => candidaturasService.getMinhas(),
+    queryFn: () => candidaturasService.getMinhas(user?.uid),
     staleTime: 2 * 60 * 1000,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user?.uid,
   });
 }
 
@@ -71,9 +71,11 @@ export function useCandidatura(id: string) {
  */
 export function useApply() {
   const queryClient = useQueryClient();
+  const { user } = useFirebaseAuth();
 
   return useMutation({
-    mutationFn: (vagaId: string) => candidaturasService.apply(vagaId),
+    mutationFn: (vagaId: string) =>
+      candidaturasService.apply(vagaId, user?.uid),
     onSuccess: (_, vagaId) => {
       queryClient.invalidateQueries({ queryKey: candidaturasKeys.minhas() });
       queryClient.invalidateQueries({

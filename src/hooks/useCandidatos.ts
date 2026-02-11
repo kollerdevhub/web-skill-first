@@ -20,13 +20,13 @@ export const candidatosKeys = {
  * Hook to get my candidate profile
  */
 export function useMyProfile() {
-  const { isAuthenticated } = useFirebaseAuth();
+  const { user, isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: candidatosKeys.myProfile(),
-    queryFn: () => candidatosService.getMyProfile(),
+    queryFn: () => candidatosService.getMyProfile(user?.uid),
     staleTime: 5 * 60 * 1000,
     retry: false,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user?.uid,
   });
 }
 
@@ -35,10 +35,11 @@ export function useMyProfile() {
  */
 export function useCreateProfile() {
   const queryClient = useQueryClient();
+  const { user } = useFirebaseAuth();
 
   return useMutation({
     mutationFn: (data: CreateCandidatoDTO) =>
-      candidatosService.createProfile(data),
+      candidatosService.createProfile(data, user?.uid),
     onSuccess: (data) => {
       queryClient.setQueryData(candidatosKeys.myProfile(), data);
     },
@@ -50,10 +51,11 @@ export function useCreateProfile() {
  */
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
+  const { user } = useFirebaseAuth();
 
   return useMutation({
     mutationFn: (data: UpdateCandidatoDTO) =>
-      candidatosService.updateProfile(data),
+      candidatosService.updateProfile(data, user?.uid),
     onSuccess: (data) => {
       queryClient.setQueryData(candidatosKeys.myProfile(), data);
     },
@@ -65,9 +67,11 @@ export function useUpdateProfile() {
  */
 export function useUploadCurriculo() {
   const queryClient = useQueryClient();
+  const { user } = useFirebaseAuth();
 
   return useMutation({
-    mutationFn: (file: File) => candidatosService.uploadCurriculo(file),
+    mutationFn: (file: File) =>
+      candidatosService.uploadCurriculo(file, user?.uid),
     onSuccess: (data) => {
       queryClient.setQueryData<Candidato | undefined>(
         candidatosKeys.myProfile(),
@@ -83,9 +87,10 @@ export function useUploadCurriculo() {
  */
 export function useDeleteCurriculo() {
   const queryClient = useQueryClient();
+  const { user } = useFirebaseAuth();
 
   return useMutation({
-    mutationFn: () => candidatosService.deleteCurriculo(),
+    mutationFn: () => candidatosService.deleteCurriculo(user?.uid),
     onSuccess: () => {
       queryClient.setQueryData<Candidato | undefined>(
         candidatosKeys.myProfile(),

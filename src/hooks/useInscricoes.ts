@@ -17,12 +17,12 @@ export const inscricoesKeys = {
  * Hook to get my enrollments
  */
 export function useMinhasInscricoes() {
-  const { isAuthenticated } = useFirebaseAuth();
+  const { user, isAuthenticated } = useFirebaseAuth();
   return useQuery({
     queryKey: inscricoesKeys.minhas(),
-    queryFn: () => inscricoesService.getMinhas(),
+    queryFn: () => inscricoesService.getMinhas(user?.uid),
     staleTime: 2 * 60 * 1000,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user?.uid,
   });
 }
 
@@ -42,9 +42,11 @@ export function useInscricao(id: string) {
  */
 export function useEnroll() {
   const queryClient = useQueryClient();
+  const { user } = useFirebaseAuth();
 
   return useMutation({
-    mutationFn: (cursoId: string) => inscricoesService.enroll(cursoId),
+    mutationFn: (cursoId: string) =>
+      inscricoesService.enroll(cursoId, user?.uid),
     onSuccess: (_, cursoId) => {
       queryClient.invalidateQueries({ queryKey: inscricoesKeys.minhas() });
       queryClient.invalidateQueries({ queryKey: cursosKeys.detail(cursoId) });
