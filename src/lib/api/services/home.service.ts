@@ -28,13 +28,13 @@ export const homeService = {
         cursosCountResult,
         candidatosCountResult,
       ] = await Promise.allSettled([
-        // Vagas Destaque (requires index: status + createdAt)
+        // Vagas Destaque (Simplified to avoid composite index)
+        // Fetch recent jobs and filter in memory if needed
         getDocs(
           query(
             collection(db, COLLECTIONS.VAGAS),
-            where('status', '==', 'aberta'),
             orderBy('createdAt', 'desc'),
-            limit(4),
+            limit(20), // Fetch more to filter client-side
           ),
         ),
 
@@ -55,17 +55,21 @@ export const homeService = {
 
       const vagasDestaque: VagaDestaque[] =
         vagasSnapshotResult.status === 'fulfilled'
-          ? vagasSnapshotResult.value.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                titulo: data.titulo,
-                empresa: data.empresa || { nome: 'Empresa', logoUrl: '' },
-                localizacao: data.localizacao,
-                modalidade: data.modalidade,
-                tipoContrato: data.tipoContrato,
-              } as VagaDestaque;
-            })
+          ? vagasSnapshotResult.value.docs
+              .map((doc) => {
+                const data = doc.data();
+                return {
+                  id: doc.id,
+                  titulo: data.titulo,
+                  empresa: data.empresa || { nome: 'Empresa', logoUrl: '' },
+                  localizacao: data.localizacao,
+                  modalidade: data.modalidade,
+                  tipoContrato: data.tipoContrato,
+                  status: data.status, // We need status for filtering
+                } as VagaDestaque & { status?: string };
+              })
+              .filter((v) => v.status === 'aberta')
+              .slice(0, 4) // Limit to 4 after filtering
           : [];
 
       if (vagasSnapshotResult.status === 'rejected') {

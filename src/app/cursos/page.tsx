@@ -15,6 +15,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { LandingHeader } from '@/components/landing-header';
+
 export default function PublicCoursesPage() {
   const [search, setSearch] = useState('');
   const { data, isLoading, error } = useCursos({
@@ -25,6 +27,7 @@ export default function PublicCoursesPage() {
 
   return (
     <main className='min-h-screen bg-slate-50'>
+      <LandingHeader />
       <div className='max-w-7xl mx-auto px-4 py-10 space-y-6'>
         <div className='flex items-center gap-3'>
           <div className='p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20'>
@@ -118,4 +121,3 @@ export default function PublicCoursesPage() {
     </main>
   );
 }
-
