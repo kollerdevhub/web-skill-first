@@ -61,10 +61,12 @@ export const inscricoesService = {
     );
     const existing = await getDocs(q);
     if (!existing.empty) {
-      const existingData = existing.docs[0].data() as Inscricao;
+      const existingData = existing.docs[0].data() as Omit<Inscricao, 'id'> & {
+        id?: string;
+      };
       return {
-        id: existing.docs[0].id,
         ...existingData,
+        id: existing.docs[0].id,
         curso: courseSummary,
       } as Inscricao;
     }
@@ -94,8 +96,8 @@ export const inscricoesService = {
     await batch.commit();
 
     return {
-      id: newEnrollmentRef.id,
       ...enrollmentData,
+      id: newEnrollmentRef.id,
       curso: courseSummary,
     } as Inscricao;
   },
@@ -117,10 +119,14 @@ export const inscricoesService = {
       (doc) => {
         // Never trust embedded/legacy `curso` snapshots from enrollment docs.
         // We only attach live course data to avoid showing stale/fake records.
-        const raw = doc.data() as Inscricao & { curso?: unknown };
+        const raw = doc.data() as Omit<Inscricao, 'id'> & {
+          id?: string;
+          curso?: unknown;
+        };
         const safeData = { ...raw };
         delete safeData.curso;
-        return { id: doc.id, ...safeData } as Inscricao;
+        delete safeData.id;
+        return { ...safeData, id: doc.id } as Inscricao;
       },
     );
 
@@ -158,7 +164,8 @@ export const inscricoesService = {
     if (!snapshot.exists()) {
       throw new Error('Enrollment not found');
     }
-    return { id: snapshot.id, ...snapshot.data() } as Inscricao;
+    const data = snapshot.data() as Omit<Inscricao, 'id'> & { id?: string };
+    return { ...data, id: snapshot.id } as Inscricao;
   },
 
   /**
@@ -286,7 +293,10 @@ export const inscricoesService = {
     await updateDoc(docRef, updateData);
 
     const updated = await getDoc(docRef);
-    return { id: updated.id, ...updated.data() } as Inscricao;
+    const updatedData = updated.data() as Omit<Inscricao, 'id'> & {
+      id?: string;
+    };
+    return { ...updatedData, id: updated.id } as Inscricao;
   },
 
   /**
