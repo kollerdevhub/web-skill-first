@@ -2,11 +2,11 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { initAdmin } from '@/lib/firebase-admin';
 
-const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+const authSecret = process.env.AUTH_SECRET
 const googleClientId =
-  process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+  process.env.AUTH_GOOGLE_ID
 const googleClientSecret =
-  process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+  process.env.AUTH_GOOGLE_SECRET
 
 if (!googleClientId || !googleClientSecret) {
   console.error(
